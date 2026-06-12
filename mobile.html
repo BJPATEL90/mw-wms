@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MW WMS — Floor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --teal:#0d9488;--teal-l:#ccfbf1;--teal-d:#134e4a;
+  --amber:#d97706;--amber-l:#fef3c7;--amber-d:#78350f;
+  --red:#dc2626;--red-l:#fee2e2;--red-d:#7f1d1d;
+  --green:#059669;--green-l:#d1fae5;--green-d:#064e3b;
+  --orange:#ea580c;--orange-l:#ffedd5;
+  --slate:#0f172a;--slate3:#334155;--slate4:#64748b;--slate5:#94a3b8;--slate6:#cbd5e1;
+  --surface:#f8fafc;--card:#fff;--border:#e2e8f0;
+  --nav-h:56px;--tab-h:60px;
+}
+html,body{height:100%;overflow:hidden;background:var(--surface);font-family:'DM Sans',system-ui,sans-serif;color:var(--slate);font-size:14px}
+
+/* ── LOGIN ── */
+#loginScreen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#0c4a6e 0%,#0d9488 100%);z-index:999;padding:24px}
+.login-card{background:#fff;border-radius:20px;padding:32px 24px;width:100%;max-width:360px;box-shadow:0 24px 64px rgba(0,0,0,.3)}
+.login-logo{width:52px;height:52px;background:var(--teal);border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.login-logo svg{width:28px;height:28px;stroke:#fff;stroke-width:2;fill:none}
+.login-title{font-size:22px;font-weight:700;color:var(--slate);margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--slate4);margin-bottom:24px}
+.form-label{font-size:11px;font-weight:600;color:var(--slate4);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;display:block}
+.form-input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:inherit;background:#fff;outline:none;transition:border .2s}
+.form-input:focus{border-color:var(--teal)}
+.btn-login{width:100%;padding:14px;background:var(--teal);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;margin-top:20px;letter-spacing:.3px}
+.btn-login:active{opacity:.85}
+#loginErr{color:var(--red);font-size:12px;margin-top:10px;min-height:16px;text-align:center}
+#loginStatus{font-size:12px;color:var(--slate4);text-align:center;margin-top:8px}
+
+/* ── APP SHELL ── */
+#app{display:none;flex-direction:column;height:100%}
+#app.visible{display:flex}
+
+/* ── TOP NAV ── */
+.topnav{height:var(--nav-h);background:var(--teal);color:#fff;display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;box-shadow:0 2px 8px rgba(13,148,136,.3)}
+.topnav-logo{width:30px;height:30px;background:rgba(255,255,255,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.topnav-logo svg{width:18px;height:18px;stroke:#fff;stroke-width:2;fill:none}
+.topnav-title{font-size:16px;font-weight:700;flex:1}
+.topnav-user{font-size:11px;color:rgba(255,255,255,.75);text-align:right;line-height:1.3}
+.topnav-sync{width:32px;height:32px;background:rgba(255,255,255,.15);border:none;border-radius:8px;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.topnav-sync svg{width:16px;height:16px;stroke:#fff;stroke-width:2;fill:none}
+
+/* ── PAGE AREA ── */
+.pages{flex:1;overflow:hidden;position:relative}
+.page{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;padding:16px;padding-bottom:80px}
+.page.active{display:block}
+
+/* ── BOTTOM TAB BAR ── */
+.tabbar{height:var(--tab-h);background:#fff;border-top:1px solid var(--border);display:flex;flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,0)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;cursor:pointer;color:var(--slate5);font-size:10px;font-weight:500;transition:color .15s;padding:4px 0}
+.tab.active{color:var(--teal)}
+.tab svg{width:22px;height:22px;stroke:currentColor;stroke-width:2;fill:none;transition:stroke .15s}
+.tab-badge{position:relative}
+.badge{position:absolute;top:-4px;right:-8px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:999px;padding:1px 5px;min-width:16px;text-align:center}
+
+/* ── CARD ── */
+.card{background:var(--card);border-radius:14px;border:1px solid var(--border);overflow:hidden;margin-bottom:12px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+.card-head{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.card-head svg{width:18px;height:18px;stroke:var(--teal);stroke-width:2;fill:none;flex-shrink:0}
+.card-head-title{font-size:14px;font-weight:700;color:var(--slate);flex:1}
+.card-body{padding:14px 16px}
+
+/* ── SEARCH BAR ── */
+.search-bar{display:flex;gap:8px;margin-bottom:14px}
+.search-input{flex:1;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:#fff;outline:none;-webkit-appearance:none}
+.search-input:focus{border-color:var(--teal)}
+.search-btn{padding:11px 16px;background:var(--teal);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.search-btn:active{opacity:.85}
+
+/* ── INVENTORY RESULT ── */
+.inv-sku-header{background:var(--teal-l);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.inv-sku-code{font-size:12px;font-weight:700;color:var(--teal-d);font-family:monospace;letter-spacing:.5px}
+.inv-sku-name{font-size:14px;font-weight:600;color:var(--slate);margin-top:2px}
+.inv-row{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff}
+.inv-row-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.inv-bin{font-family:monospace;font-size:13px;font-weight:700;color:var(--teal);background:var(--teal-l);padding:3px 8px;border-radius:6px}
+.inv-qty{font-size:20px;font-weight:700;color:var(--slate);line-height:1}
+.inv-qty-label{font-size:10px;color:var(--slate4);font-weight:500}
+.inv-row-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.inv-meta-item{display:flex;flex-direction:column}
+.inv-meta-label{font-size:10px;color:var(--slate5);font-weight:500;text-transform:uppercase;letter-spacing:.4px}
+.inv-meta-val{font-size:12px;font-weight:600;color:var(--slate)}
+.stock-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:.3px}
+.sb-good{background:var(--green-l);color:var(--green-d)}
+.sb-damage{background:var(--red-l);color:var(--red-d)}
+.sb-blocked{background:var(--amber-l);color:var(--amber-d)}
+.expiry-ok{color:var(--green)}
+.expiry-near{color:var(--amber)}
+.expiry-bad{color:var(--red)}
+
+/* ── CYCLE COUNT ── */
+.bin-search-large{width:100%;padding:16px;font-size:18px;font-family:monospace;border:2px solid var(--border);border-radius:12px;background:#fff;outline:none;text-transform:uppercase;letter-spacing:1px;text-align:center}
+.bin-search-large:focus{border-color:var(--teal)}
+.cc-bin-header{background:linear-gradient(135deg,var(--teal) 0%,var(--teal-d) 100%);color:#fff;border-radius:12px;padding:16px;margin-bottom:12px;text-align:center}
+.cc-bin-id{font-family:monospace;font-size:22px;font-weight:700;letter-spacing:2px}
+.cc-bin-sub{font-size:12px;opacity:.8;margin-top:4px}
+.cc-line{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff}
+.cc-line-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.cc-sku{font-size:12px;font-family:monospace;font-weight:700;color:var(--teal)}
+.cc-name{font-size:12px;color:var(--slate3);margin-top:1px}
+.cc-batch{font-size:11px;color:var(--slate4);margin-top:2px}
+.cc-qty-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.cc-sys-qty{font-size:12px;color:var(--slate4)}
+.cc-input-wrap{flex:1;display:flex;align-items:center;gap:6px}
+.cc-qty-btn{width:36px;height:36px;border:1.5px solid var(--border);border-radius:8px;background:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-weight:700;color:var(--slate3)}
+.cc-qty-btn:active{background:var(--teal-l)}
+.cc-qty-input{width:70px;padding:8px 6px;border:1.5px solid var(--teal);border-radius:8px;font-size:16px;font-weight:700;text-align:center;font-family:monospace;color:var(--slate)}
+.cc-diff-ok{color:var(--green);font-size:11px;font-weight:600}
+.cc-diff-bad{color:var(--red);font-size:11px;font-weight:600}
+.btn-submit{width:100%;padding:14px;background:var(--teal);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:.3px;margin-top:4px}
+.btn-submit:active{opacity:.85}
+.btn-submit:disabled{opacity:.5;cursor:not-allowed}
+.btn-outline{width:100%;padding:12px;background:#fff;color:var(--teal);border:1.5px solid var(--teal);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
+
+/* ── PUTAWAY ── */
+.putaway-card{border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;background:#fff}
+.putaway-card.warn{border-color:#fca5a5;background:#fff8f8}
+.putaway-card.done{border-color:var(--green);background:var(--green-l);opacity:.7}
+.putaway-pallet{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.putaway-pallet-no{font-size:11px;font-weight:700;color:var(--slate4);text-transform:uppercase;letter-spacing:.5px}
+.putaway-qty-chip{background:var(--teal);color:#fff;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px}
+.putaway-bin-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.putaway-bin-label{font-size:11px;color:var(--slate5);width:40px;flex-shrink:0}
+.putaway-bin-val{font-family:monospace;font-size:16px;font-weight:700;color:var(--slate);flex:1}
+.putaway-bin-val.warn{color:var(--red)}
+.putaway-change-btn{padding:6px 12px;border:1.5px solid var(--teal);border-radius:8px;background:#fff;color:var(--teal);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
+.putaway-done-btn{width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:6px}
+.putaway-done-btn.undone{background:#fff;color:var(--slate4);border:1.5px solid var(--border)}
+.putaway-sku-info{font-size:12px;color:var(--slate3);margin-bottom:10px;line-height:1.5}
+.putaway-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.putaway-chip{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600}
+.chip-class{background:var(--teal-l);color:var(--teal-d)}
+.chip-fsn{background:var(--amber-l);color:var(--amber-d)}
+.chip-overflow{background:var(--red-l);color:var(--red-d)}
+
+/* ── FSN VIEW ── */
+.fsn-row{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff}
+.fsn-row.move-up{border-left:3px solid var(--red)}
+.fsn-row.bring-down{border-left:3px solid var(--green)}
+.fsn-row-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.fsn-move-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px}
+.badge-up{background:var(--red-l);color:var(--red-d)}
+.badge-down{background:var(--green-l);color:var(--green-d)}
+.fsn-bins{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.fsn-bin{font-family:monospace;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px}
+.fsn-from{background:var(--amber-l);color:var(--amber-d)}
+.fsn-arrow{color:var(--slate5);font-size:14px}
+.fsn-to{background:var(--green-l);color:var(--green-d)}
+.fsn-sl{font-size:11px;color:var(--slate4);margin-top:4px}
+.sl-ok{color:var(--green)}
+.sl-near{color:var(--amber)}
+.sl-low{color:var(--red)}
+.fsn-shelf-filter{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px}
+.fsn-filter-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--slate4);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px}
+.fsn-filter-head b{color:var(--teal);font-size:13px;letter-spacing:0;text-transform:none}
+.fsn-range-row{display:flex;gap:10px;align-items:center;margin-top:8px}
+.fsn-range-row label{flex:1;font-size:11px;font-weight:700;color:var(--slate4);text-transform:uppercase;letter-spacing:.4px}
+.fsn-range-row input[type=number]{width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-weight:700;color:var(--slate);outline:none}
+.fsn-range-row input[type=range]{flex:1;accent-color:var(--teal)}
+
+/* ── EXPIRY SECTION ── */
+.expiry-row{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff}
+.expiry-row.expired{border-left:3px solid var(--red);background:#fff8f8}
+.expiry-row.near{border-left:3px solid var(--amber);background:#fffbeb}
+.expiry-flag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-bottom:6px;display:inline-block}
+.flag-expired{background:var(--red-l);color:var(--red-d)}
+.flag-near{background:var(--amber-l);color:var(--amber-d)}
+
+/* ── NOTICE ── */
+.notice{border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;display:flex;align-items:flex-start;gap:10px}
+.notice svg{width:18px;height:18px;flex-shrink:0;margin-top:1px;stroke-width:2;fill:none}
+.notice.info{background:#eff6ff;color:#1e40af}
+.notice.info svg{stroke:#1e40af}
+.notice.warn{background:var(--amber-l);color:var(--amber-d)}
+.notice.warn svg{stroke:var(--amber)}
+.notice.success{background:var(--green-l);color:var(--green-d)}
+.notice.success svg{stroke:var(--green)}
+.notice.error{background:var(--red-l);color:var(--red-d)}
+.notice.error svg{stroke:var(--red)}
+
+/* ── MODAL (bin change) ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:500;display:none;align-items:flex-end}
+.modal-backdrop.open{display:flex}
+.modal-sheet{background:#fff;border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-height:70vh;overflow-y:auto}
+.modal-handle{width:40px;height:4px;background:var(--slate6);border-radius:2px;margin:0 auto 16px}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:14px}
+.bin-option{padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.bin-option:active{background:var(--teal-l);border-color:var(--teal)}
+.bin-option-id{font-family:monospace;font-size:14px;font-weight:700;color:var(--teal)}
+.bin-option-meta{font-size:11px;color:var(--slate4);margin-top:2px}
+.bin-option.recommended{border-color:var(--teal)}
+
+/* ── LOADING OVERLAY ── */
+#loadingOverlay{position:fixed;inset:0;background:rgba(255,255,255,.9);z-index:800;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+#loadingOverlay.visible{display:flex}
+.loader{width:40px;height:40px;border:3px solid var(--teal-l);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-msg{font-size:14px;color:var(--slate3);font-weight:500;text-align:center;padding:0 24px}
+.load-sub{font-size:12px;color:var(--slate4);text-align:center}
+
+/* ── PRINT SHEET ── */
+@media print{
+  .topnav,.tabbar,#loginScreen,#loadingOverlay,.no-print{display:none!important}
+  .page{position:static!important;display:block!important;overflow:visible!important;padding:0!important}
+  .pages{overflow:visible!important;height:auto!important}
+  body,html{overflow:visible!important;height:auto!important}
+  .card{break-inside:avoid}
+}
+
+/* ── UTILITY ── */
+.empty-state{text-align:center;padding:40px 20px;color:var(--slate5)}
+.empty-state svg{width:48px;height:48px;stroke:var(--slate6);stroke-width:1.5;fill:none;margin-bottom:12px}
+.empty-state p{font-size:14px}
+.section-title{font-size:12px;font-weight:700;color:var(--slate4);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;margin-top:4px}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--slate6);color:var(--slate3)}
+.divider{height:1px;background:var(--border);margin:14px 0}
+.print-btn{padding:10px 18px;background:var(--slate2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
+.print-btn svg{width:16px;height:16px;stroke:#fff;stroke-width:2;fill:none}
+.gasurl-notice{background:var(--amber-l);border:1px solid var(--amber);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--amber-d);margin-bottom:14px}
+.gasurl-input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;margin-top:8px}
+.gasurl-btn{margin-top:8px;padding:10px 16px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+
+/* ── v3 improvements: better mobile sizing ── */
+html,body{font-size:15px}
+.page{padding:14px 14px 84px}
+.tabbar{height:64px}
+.tab{font-size:11px;font-weight:600;gap:4px}
+.tab svg{width:24px;height:24px}
+.topnav-title{font-size:17px}
+.topnav-user{font-size:12px}
+.search-input{padding:12px 14px;border-radius:12px;font-size:15px}
+.search-btn{padding:12px 18px;border-radius:12px;font-size:15px;font-weight:600}
+.inv-sku-header{border-left:4px solid var(--teal)}
+.inv-sku-code{font-size:13px}
+.inv-sku-name{font-size:15px;margin-top:3px}
+.inv-row{border-radius:12px;padding:14px;margin-bottom:10px}
+.inv-bin{font-size:14px;padding:5px 10px;border-radius:8px}
+.inv-qty{font-size:26px}
+.inv-qty-label{font-size:11px}
+.inv-meta-label{font-size:11px;font-weight:600}
+.inv-meta-val{font-size:14px;font-weight:600}
+.stock-badge{font-size:12px;padding:3px 10px}
+.btn-submit{padding:15px;border-radius:12px;font-size:16px}
+.btn-outline{padding:13px;border-radius:12px;font-size:15px}
+.cc-bin-id{font-size:24px}
+.cc-qty-btn{width:40px;height:40px;border-radius:10px}
+.cc-qty-input{width:80px;font-size:18px;border-radius:10px}
+.putaway-bin-val{font-size:18px}
+.putaway-change-btn{padding:8px 14px;font-size:13px}
+.modal-title{font-size:17px}
+.bin-option{padding:14px;border-radius:12px;margin-bottom:10px}
+.bin-option-id{font-size:16px}
+.bin-option-meta{font-size:13px;margin-top:3px}
+.section-title{font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:12px}
+.load-msg{font-size:16px;font-weight:600}
+.load-sub{font-size:14px}
+.notice{font-size:14px;padding:12px 14px;border-radius:12px}
+.fsn-row{border-radius:12px;padding:14px;margin-bottom:10px}
+.fsn-bin{font-size:13px;padding:5px 12px}
+.expiry-row{border-radius:12px;padding:14px;margin-bottom:10px}
+/* Mode toggle button group */
+.mode-toggle{display:flex;border:1.5px solid var(--teal);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.mode-btn{flex:1;padding:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:#fff;color:var(--teal);transition:all .15s}
+.mode-btn.active{background:var(--teal);color:#fff}
+/* Result count */
+.result-count{font-size:12px;font-weight:700;color:var(--slate4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;padding:0 2px}
+
+/* Mobile navigation and bin suggestion fixes */
+html{height:100%;min-height:100%;overflow:hidden}
+body{height:100%;min-height:100%;overflow:hidden;overscroll-behavior:none}
+#app{height:100vh;height:100dvh;min-height:100svh;max-width:560px;margin:0 auto;background:var(--surface);box-shadow:0 0 0 1px rgba(15,23,42,.04)}
+.pages{min-height:0;overflow:hidden}
+.page{padding:12px 12px calc(var(--tab-h) + 18px + env(safe-area-inset-bottom));scroll-padding-bottom:calc(var(--tab-h) + 20px);overscroll-behavior:contain}
+.topnav{padding-top:env(safe-area-inset-top);height:calc(var(--nav-h) + env(safe-area-inset-top));min-height:calc(var(--nav-h) + env(safe-area-inset-top))}
+.tabbar{height:calc(var(--tab-h) + env(safe-area-inset-bottom));min-height:calc(var(--tab-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom)}
+.search-bar{position:relative;align-items:stretch}
+.search-input,.bin-search-large,.form-input,select,button{min-height:44px}
+.bin-search-large{text-align:left;font-size:16px;letter-spacing:.5px}
+.bin-suggest-panel{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:120;background:#fff;border:1.5px solid var(--teal);border-radius:12px;box-shadow:0 14px 32px rgba(15,23,42,.18);max-height:240px;overflow-y:auto;padding:6px;display:none}
+.bin-suggest-panel.open{display:block}
+.bin-suggest-item{width:100%;border:0;background:#fff;text-align:left;padding:10px 12px;border-radius:9px;display:flex;justify-content:space-between;gap:10px;align-items:center;cursor:pointer;color:var(--slate)}
+.bin-suggest-item:active,.bin-suggest-item:hover{background:var(--teal-l)}
+.bin-suggest-id{font-family:monospace;font-size:14px;font-weight:800;color:var(--teal-d)}
+.bin-suggest-meta{font-size:11px;color:var(--slate4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+.bin-suggest-empty{padding:12px;color:var(--slate4);font-size:12px;text-align:center}
+.bin-filter-input{width:100%;min-height:44px;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:monospace;font-size:15px;text-transform:uppercase;outline:none;margin-bottom:10px}
+.bin-filter-input:focus{border-color:var(--teal)}
+@media (max-width:380px){
+  :root{--nav-h:50px;--tab-h:58px}
+  .page{padding:10px 10px calc(var(--tab-h) + 16px + env(safe-area-inset-bottom))}
+  .topnav{padding-left:10px;padding-right:10px;gap:8px}
+  .topnav-title{font-size:15px}
+  .topnav-user{display:none}
+  .search-bar{gap:6px}
+  .search-btn{padding-left:12px;padding-right:12px;font-size:13px}
+  .tab{font-size:9px;gap:2px}
+  .tab svg{width:20px;height:20px}
+  .putaway-bin-row{align-items:flex-start;flex-wrap:wrap}
+  .putaway-bin-label{width:auto}
+  .putaway-change-btn{margin-left:auto}
+}
+@media (min-width:700px){body{background:#e2e8f0}}
+
+/* Google Apps Script mobile wrapper fallback: readable phone scale */
+body.force-phone-scale{width:var(--phone-css-width);height:var(--phone-css-height);overflow:hidden;background:var(--surface)}
+body.force-phone-scale #app,
+body.force-phone-scale #loginScreen,
+body.force-phone-scale #loadingOverlay,
+body.force-phone-scale .modal-backdrop{
+  width:var(--phone-css-width);
+  height:var(--phone-css-height);
+  min-height:var(--phone-css-height);
+  max-width:none;
+  margin:0;
+  transform:scale(var(--phone-scale));
+  transform-origin:top left;
+}
+body.force-phone-scale #app{box-shadow:none}
+body.force-phone-scale .page{padding:12px 12px calc(var(--tab-h) + 20px + env(safe-area-inset-bottom))}
+body.force-phone-scale .topnav{padding-left:12px;padding-right:10px;gap:8px}
+body.force-phone-scale .topnav-title{font-size:16px}
+body.force-phone-scale .topnav-user{font-size:10px;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.force-phone-scale .search-input{font-size:16px;padding:12px}
+body.force-phone-scale .search-btn{font-size:13px;padding:10px 14px;min-width:58px}
+body.force-phone-scale .mode-btn{font-size:13px;min-height:42px;padding:8px 6px}
+body.force-phone-scale .result-count{font-size:11px;margin-bottom:10px}
+body.force-phone-scale .inv-sku-header{padding:12px;margin-bottom:9px}
+body.force-phone-scale .inv-sku-code{font-size:12px;letter-spacing:0}
+body.force-phone-scale .inv-sku-name{font-size:13px;line-height:1.25}
+body.force-phone-scale .inv-row{padding:12px;margin-bottom:10px;border-radius:10px}
+body.force-phone-scale .inv-row-top{align-items:flex-start;gap:10px}
+body.force-phone-scale .inv-bin{font-size:13px;max-width:210px;white-space:normal;overflow-wrap:anywhere}
+body.force-phone-scale .inv-qty{font-size:22px}
+body.force-phone-scale .inv-row-meta{grid-template-columns:1fr;gap:8px;margin-top:10px}
+body.force-phone-scale .inv-meta-label{font-size:10px}
+body.force-phone-scale .inv-meta-val,body.force-phone-scale .stock-badge{font-size:12px}
+body.force-phone-scale .tab{font-size:9px;gap:2px;padding-top:3px}
+body.force-phone-scale .tab svg{width:20px;height:20px}
+body.force-phone-scale .bin-suggest-panel{max-height:220px}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </div>
+    <div class="login-title">MW WMS</div>
+    <div class="login-sub">Warehouse Floor App — Bhiwandi</div>
+    <!-- GAS URL is hardcoded — no manual entry needed -->
+    <div id="gasSetup" style="display:none"></div>
+    <div id="loginForm">
+      <label class="form-label">User ID</label>
+      <input class="form-input" id="mLoginUser" placeholder="Enter your user ID" autocomplete="username" autocorrect="off" autocapitalize="none">
+      <label class="form-label" style="margin-top:14px">Password</label>
+      <input class="form-input" id="mLoginPass" type="password" placeholder="••••••••" autocomplete="current-password">
+      <button class="btn-login" onclick="mDoLogin()">Sign In</button>
+      <div id="loginErr"></div>
+      <div id="loginStatus">Connecting…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOADING OVERLAY ══ -->
+<div id="loadingOverlay">
+  <div class="loader"></div>
+  <div class="load-msg" id="loadMsg">Loading data…</div>
+  <div class="load-sub" id="loadSub"></div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+
+  <!-- Top nav -->
+  <div class="topnav">
+    <div class="topnav-logo">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </div>
+    <div class="topnav-title">Floor App</div>
+    <div class="topnav-user" id="topUser"></div>
+    <button class="topnav-sync" onclick="mRefreshAll()" title="Sync data">
+      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    </button>
+  </div>
+
+  <!-- Pages -->
+  <div class="pages">
+
+    <!-- ══ SEARCH INVENTORY ══ -->
+    <div class="page active" id="page-search">
+      <div class="search-bar">
+        <input class="search-input" id="mSearchInput" placeholder="Bin ID or SKU Code…"
+          autocorrect="off" autocapitalize="characters" spellcheck="false"
+          onkeydown="if(event.key==='Enter')mSearch()">
+        <button class="search-btn" onclick="mSearch()">Search</button>
+      </div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mModeBtn-bin" onclick="mSetSearchMode('bin')">By Bin</button>
+        <button class="mode-btn" id="mModeBtn-sku" onclick="mSetSearchMode('sku')">By SKU</button>
+      </div>
+      <div id="mSearchResults"></div>
+    </div>
+
+    <!-- ══ CYCLE COUNT ══ -->
+    <div class="page" id="page-cc">
+      <div class="notice info">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Scan or type bin ID to start count. System shows existing stock.</span>
+      </div>
+      <div class="search-bar">
+        <input class="bin-search-large" id="mCCBinInput" placeholder="BIN ID / SCAN" 
+          autocorrect="off" autocapitalize="characters" spellcheck="false"
+          onkeydown="if(event.key==='Enter')mStartCC()">
+      </div>
+      <button class="btn-submit" onclick="mStartCC()" style="margin-bottom:14px">Load Bin Stock</button>
+      <div id="mCCContent"></div>
+    </div>
+
+    <!-- ══ PUTAWAY PLAN ══ -->
+    <div class="page" id="page-putaway">
+      <div id="mPutawayContent"></div>
+    </div>
+
+    <!-- ══ FSN MOVEMENT ══ -->
+    <div class="page" id="page-fsn">
+      <div class="search-bar" style="margin-bottom:8px">
+        <input class="search-input" id="mFSNSearch" placeholder="Search SKU / Bin…"
+          oninput="mRenderFSN()" autocorrect="off" autocapitalize="none">
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <select id="mFSNMove" onchange="mRenderFSN()" style="flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;min-width:120px">
+          <option value="">All Moves</option>
+          <option value="BRING_DOWN">🟢 Bring Down</option>
+          <option value="MOVE_UP">🔴 Move Up</option>
+        </select>
+        <select id="mFSNBrand" onchange="mRenderFSN()" style="flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;min-width:120px">
+          <option value="">All Brands</option>
+          <option value="Bodywise">Bodywise</option>
+          <option value="LittleJoys">LittleJoys</option>
+          <option value="ManMatters">ManMatters</option>
+        </select>
+      </div>
+      <div class="fsn-shelf-filter">
+        <div class="fsn-filter-head">
+          <span>Shelf Life %</span>
+          <b><span id="mFSNMinLabel">0</span>% - <span id="mFSNMaxLabel">100</span>%</b>
+        </div>
+        <div class="fsn-range-row">
+          <label>Min <input id="mFSNMinNum" type="number" min="0" max="100" value="0" oninput="mUpdateFSNShelfFilter('min',this.value)"></label>
+          <label>Max <input id="mFSNMaxNum" type="number" min="0" max="100" value="100" oninput="mUpdateFSNShelfFilter('max',this.value)"></label>
+        </div>
+        <div class="fsn-range-row">
+          <input id="mFSNMinRange" type="range" min="0" max="100" value="0" oninput="mUpdateFSNShelfFilter('min',this.value)">
+          <input id="mFSNMaxRange" type="range" min="0" max="100" value="100" oninput="mUpdateFSNShelfFilter('max',this.value)">
+        </div>
+      </div>
+      <div id="mFSNContent"></div>
+    </div>
+
+    <!-- ══ EXPIRY WATCH ══ -->
+    <div class="page" id="page-expiry">
+      <div class="notice warn">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Batches expired or expiring within 90 days. Move to designated area.</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button onclick="mFilterExpiry('all')" id="expBtn-all"
+          style="flex:1;padding:8px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--teal);background:var(--teal);color:#fff">All</button>
+        <button onclick="mFilterExpiry('expired')" id="expBtn-expired"
+          style="flex:1;padding:8px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--slate3)">Expired</button>
+        <button onclick="mFilterExpiry('near')" id="expBtn-near"
+          style="flex:1;padding:8px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--slate3)">Near (&lt;90d)</button>
+      </div>
+      <div id="mExpiryContent"></div>
+    </div>
+
+  </div><!-- /pages -->
+
+  <!-- Bottom tab bar -->
+  <div class="tabbar">
+    <button class="tab active" onclick="mShowTab('search',this)">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Inventory
+    </button>
+    <button class="tab" onclick="mShowTab('cc',this)">
+      <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Cycle Count
+    </button>
+    <button class="tab" onclick="mShowTab('putaway',this);mRenderPutaway()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Putaway
+    </button>
+    <button class="tab" onclick="mShowTab('fsn',this);mRenderFSN()">
+      <svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+      FSN
+    </button>
+    <button class="tab" onclick="mShowTab('expiry',this);mRenderExpiry()">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Expiry
+    </button>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ══ BIN CHANGE MODAL ══ -->
+<div class="modal-backdrop" id="binChangeModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="bcmTitle">Change Bin</div>
+    <div id="bcmContent"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// MOBILE WMS — FLOOR APP v1.0
+// Mosaic Wellness Bhiwandi
+// Same GAS backend as desktop WMS — shared localStorage
+// ════════════════════════════════════════════════════════
+
+// ── State ──────────────────────────────────────────────
+var GAS_URL      = '';
+var inventory    = [];
+var binMaster    = [];
+var skuMaster    = [];
+var putawayPlan  = [];
+var fsnPlanRows  = [];
+var userName     = '';
+var mSearchMode  = 'bin';
+var mCCLines     = [];
+var mCCBin       = '';
+var mDoneBins    = {};   // binId → true
+var mExpiryFilter = 'all';
+var mFSNShelfMin = 0;
+var mFSNShelfMax = 100;
+
+// ── localStorage helpers ───────────────────────────────
+function ls(k){ try{return JSON.parse(localStorage.getItem('mwwms2_'+k)||'null');}catch{return null;} }
+function lsSet(k,v){ try{localStorage.setItem('mwwms2_'+k,JSON.stringify(v));}catch{} }
+function lsRaw(k){ try{return JSON.parse(localStorage.getItem(k)||'null');}catch{return null;} }
+
+function mLooksLikePutawayPlan(v){
+  return Array.isArray(v)&&v.length&&v.some(function(r){
+    return r&&typeof r==='object'&&(r.binId||r.bin||r.suggestedBin||r.sku||r.skuCode||r.material||r.allocQty||r.qty);
+  });
+}
+function mNormalizePutawayRow(r,i){
+  var binId=r.binId||r.bin||r.suggestedBin||r.targetBin||r.toBin||'NO_BIN';
+  return {
+    sku:r.sku||r.skuCode||r.material||r.materialCode||'',
+    skuName:r.skuName||r.name||r.materialName||'',
+    batch:r.batch||r.batchNo||'',
+    binId:binId,
+    warning:!!r.warning||!binId||binId==='NO_BIN',
+    binBrand:r.binBrand||r.brand||r.zone||'',
+    cls:r.cls||r.fsn||r.classification||'B',
+    allocQty:Number(r.allocQty||r.qty||r.quantity||0),
+    allocBoxes:r.allocBoxes||r.boxes||'',
+    palletNo:r.palletNo||r.pallet||i+1,
+    isOverflow:!!r.isOverflow,
+    isFullPallet:!!r.isFullPallet
+  };
+}
+function mLoadPutawayPlan(){
+  var keys=['mwwms2_putaway','putaway','putawayPlan','putaway_plan','mw_putawayPlan','mwwms_putaway','wms_putaway','lastPutawayPlan'];
+  var found=null;
+  for(var i=0;i<keys.length;i++){
+    var val=lsRaw(keys[i]);
+    if(mLooksLikePutawayPlan(val)){found=val;break;}
+  }
+  if(!found){
+    for(var j=0;j<localStorage.length;j++){
+      var k=localStorage.key(j);
+      if(!/put.?away|putaway|pallet/i.test(k||''))continue;
+      var v=lsRaw(k);
+      if(mLooksLikePutawayPlan(v)){found=v;break;}
+    }
+  }
+  if(!found)return [];
+  var plan=found.map(mNormalizePutawayRow).filter(function(r){return r.sku||r.binId;});
+  if(plan.length)lsSet('putaway',plan);
+  return plan;
+}
+
+// ── Date helpers ───────────────────────────────────────
+function parseDate(s){
+  if(!s) return null;
+  var str=String(s).trim();
+  var m=str.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  var d=new Date(str);
+  return isNaN(d.getTime())?null:d;
+}
+function daysUntil(expStr){
+  var exp=parseDate(expStr);
+  if(!exp) return null;
+  var now=new Date(); now.setHours(0,0,0,0);
+  return Math.round((exp-now)/(1000*60*60*24));
+}
+function fmtDate(s){
+  if(!s) return '—';
+  var m=String(s).trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if(m) return m[1]+'/'+m[2]+'/'+m[3];
+  return s;
+}
+function shelfPct(mfg,exp){
+  var e=parseDate(exp),m=parseDate(mfg);
+  if(!e) return null;
+  var now=new Date(); now.setHours(0,0,0,0);
+  var left=e-now;
+  if(m&&e>m){ return Math.max(0,Math.round(left/(e-m)*100)); }
+  return null;
+}
+
+// ── callSheet — same as desktop WMS ────────────────────
+function callSheet(action,payload,onSuccess,onError,opts){
+  var url=GAS_URL||'https://script.google.com/a/macros/mosaicwellness.in/s/AKfycbwOftOsHKyol0NPhQFy8waSCT5GFdaPkrqt45U8PEip8kLVn9tXJdd3HR1_ni5xbcM9/exec';
+  if(!url){ if(onError) onError('GAS URL not set'); return; }
+  opts=opts||{};
+  var timeoutMs=opts.timeoutMs||25000;
+  var controller=window.AbortController?new AbortController():null;
+  var timer=controller?setTimeout(function(){controller.abort();},timeoutMs):null;
+  fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:action,payload:payload}),
+    signal:controller?controller.signal:undefined
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d&&d.success===false&&onError) onError(d.message||'Error');
+    else if(onSuccess) onSuccess(d);
+  })
+  .catch(function(e){
+    if(onError) onError(e.name==='AbortError'?'Request timed out. Please check network or Apps Script deployment.':e.message);
+  })
+  .finally(function(){ if(timer) clearTimeout(timer); });
+}
+
+// ── Loading overlay ────────────────────────────────────
+function showLoad(msg,sub){
+  document.getElementById('loadMsg').innerText=msg||'Loading…';
+  document.getElementById('loadSub').innerText=sub||'';
+  document.getElementById('loadingOverlay').classList.add('visible');
+}
+function hideLoad(){ document.getElementById('loadingOverlay').classList.remove('visible'); }
+
+// ── Toast ──────────────────────────────────────────────
+function mToast(msg,type,ms){
+  var t=document.createElement('div');
+  var bg=type==='error'?'var(--red)':type==='warn'?'var(--amber)':'var(--green)';
+  t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:'+bg+';color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:900;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:90vw;text-align:center';
+  t.innerText=msg;
+  document.body.appendChild(t);
+  setTimeout(function(){t.remove();},(ms||2500));
+}
+
+// ── Save GAS URL ───────────────────────────────────────
+function saveGasUrl(){
+  var url=document.getElementById('gasUrlInput').value.trim();
+  if(!url||!url.startsWith('http')){mToast('Enter a valid URL','error');return;}
+  lsSet('gasUrl',url);
+  location.reload();
+}
+
+// ── Login ──────────────────────────────────────────────
+function mDoLogin(){
+  var u=document.getElementById('mLoginUser').value.trim();
+  var p=document.getElementById('mLoginPass').value.trim();
+  var err=document.getElementById('loginErr');
+  if(!u||!p){err.innerText='Enter user ID and password';return;}
+  var btn=document.querySelector('.btn-login');
+  err.innerText='';
+  if(btn){btn.disabled=true;btn.innerText='Signing in...';}
+  document.getElementById('loginStatus').innerText='Signing in...';
+  callSheet('login',{userId:u,password:p},function(d){
+    if(!d||!d.success){
+      err.innerText=d&&d.message?d.message:'Invalid credentials';
+      document.getElementById('loginStatus').innerText='';
+      if(btn){btn.disabled=false;btn.innerText='Sign In';}
+      return;
+    }
+    userName=d.name||u;
+    lsSet('lastUser',{userId:u,name:userName,role:d.role||'OPERATOR'});
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('app').classList.add('visible');
+    document.getElementById('topUser').innerHTML=userName+'<br><span style="font-size:9px;opacity:.7">'+(d.role||'OPERATOR')+'</span>';
+    mLoadCachedData();
+    mToast('Signed in. Syncing latest data...','success',2200);
+    mLoadAllData(true);
+  },function(e){
+    err.innerText='Connection error: '+e;
+    document.getElementById('loginStatus').innerText='';
+    if(btn){btn.disabled=false;btn.innerText='Sign In';}
+  },{timeoutMs:12000});
+}
+// Load all data after login ──────────────────────────
+function mLoadCachedData(){
+  inventory=ls('inv')||[];
+  skuMaster=ls('sku')||[];
+  binMaster=ls('bin')||[];
+  putawayPlan=mLoadPutawayPlan();
+  mBuildFSN();
+}
+
+function mLoadAllData(background){
+  var hasCache=(ls('inv')||[]).length>0;
+  if(!background||!hasCache) showLoad('Loading masters...','SKU Master + Bin Master');
+  callSheet('loadAllWMSData',{},function(d){
+    if(d.skuMaster)  { skuMaster=d.skuMaster;  lsSet('sku',skuMaster); }
+    if(d.binMaster)  { binMaster=d.binMaster;   lsSet('bin',binMaster); }
+    if(d.gatepasses) { lsSet('gp',d.gatepasses); }
+    if(!background||!hasCache){
+      document.getElementById('loadMsg').innerText='Loading inventory...';
+      document.getElementById('loadSub').innerText='This may take 5-15s';
+    }
+    callSheet('refreshAllData',{},function(d2){
+      if(d2.inventory){
+        inventory=d2.inventory;
+        lsSet('inv',inventory);
+      }
+      if(d2.binMaster){ binMaster=d2.binMaster; lsSet('bin',binMaster); }
+      putawayPlan=mLoadPutawayPlan();
+      if(!background||!hasCache) hideLoad();
+      mToast('Data synced - '+inventory.length.toLocaleString()+' inventory rows','success',2500);
+      mBuildFSN();
+    },function(e){
+      if(!background||!hasCache) hideLoad();
+      inventory=ls('inv')||[];
+      putawayPlan=mLoadPutawayPlan();
+      mToast('Using cached data ('+inventory.length+' rows)','warn',3000);
+      mBuildFSN();
+    },{timeoutMs:18000});
+  },function(e){
+    if(!background||!hasCache) hideLoad();
+    inventory=ls('inv')||[];
+    skuMaster=ls('sku')||[];
+    binMaster=ls('bin')||[];
+    putawayPlan=mLoadPutawayPlan();
+    mToast('Offline - using cached data','warn',3000);
+    mBuildFSN();
+  },{timeoutMs:12000});
+}
+function mRefreshAll(){
+  showLoad('Syncing…','Fetching latest inventory');
+  callSheet('refreshAllData',{},function(d){
+    if(d.inventory){ inventory=d.inventory; lsSet('inv',inventory); }
+    if(d.binMaster){ binMaster=d.binMaster; lsSet('bin',binMaster); }
+    hideLoad();
+    mToast('Synced — '+inventory.length.toLocaleString()+' rows','success',2500);
+    mBuildFSN();
+  },function(e){
+    hideLoad();
+    mToast('Sync failed: '+e,'error',3000);
+  });
+}
+
+// ── Tab switching ──────────────────────────────────────
+function mShowTab(id,btn){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  btn.classList.add('active');
+}
+
+// ── Search mode ────────────────────────────────────────
+function mSetSearchMode(mode){
+  mSearchMode=mode;
+  document.getElementById('mModeBtn-bin').className='mode-btn'+(mode==='bin'?' active':'');
+  document.getElementById('mModeBtn-sku').className='mode-btn'+(mode==='sku'?' active':'');
+  document.getElementById('mSearchInput').placeholder=mode==='bin'?'Bin ID…':'SKU Code or Name…';
+  document.getElementById('mSearchInput').style.textTransform=mode==='bin'?'uppercase':'none';
+  document.getElementById('mSearchResults').innerHTML='';
+}
+
+// ── Inventory Search ───────────────────────────────────
+function mSearch(){
+  var q=document.getElementById('mSearchInput').value.trim().toUpperCase();
+  if(!q){mToast('Enter a bin or SKU to search','warn');return;}
+  var results=[];
+  if(mSearchMode==='bin'){
+    results=inventory.filter(function(r){return r.bin&&r.bin.toUpperCase()===q;});
+  } else {
+    results=inventory.filter(function(r){
+      return (r.skuCode&&r.skuCode.toUpperCase().includes(q))||(r.skuName&&r.skuName.toUpperCase().includes(q));
+    });
+  }
+  if(!results.length){
+    document.getElementById('mSearchResults').innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><p>No results found</p></div>';
+    return;
+  }
+
+  // Group by SKU
+  var bySkuBatch={};
+  results.forEach(function(r){
+    var key=r.skuCode+'|||'+(r.batch||'');
+    if(!bySkuBatch[key]) bySkuBatch[key]={skuCode:r.skuCode,skuName:r.skuName||'',batch:r.batch||'',rows:[]};
+    bySkuBatch[key].rows.push(r);
+  });
+
+  var html='<div class="result-count">'+results.length+' result(s) — '+(mSearchMode==='bin'?'Bin: '+q:'SKU search')+'</div>';
+  Object.values(bySkuBatch).forEach(function(grp){
+    html+='<div class="inv-sku-header"><div class="inv-sku-code">'+grp.skuCode+'</div><div class="inv-sku-name">'+grp.skuName+'</div></div>';
+    grp.rows.forEach(function(r){
+      var days=daysUntil(r.expDate);
+      var slClass=days===null?'':days<0?'expiry-bad':days<=90?'expiry-near':'expiry-ok';
+      var slText=days===null?'—':days<0?'EXPIRED':days+'d left';
+      var stType=(r.stockType||'GOOD').toUpperCase();
+      var stClass=stType==='GOOD'||stType==='UNRESTRICTED'?'sb-good':stType.includes('DAMAGE')?'sb-damage':'sb-blocked';
+      html+='<div class="inv-row">'
+        +'<div class="inv-row-top">'
+          +'<span class="inv-bin">'+r.bin+'</span>'
+          +'<div style="text-align:right"><div class="inv-qty">'+Number(r.qty).toLocaleString()+'</div><div class="inv-qty-label">UNITS</div></div>'
+        +'</div>'
+        +'<div class="inv-row-meta">'
+          +'<div class="inv-meta-item"><span class="inv-meta-label">Batch</span><span class="inv-meta-val">'+(r.batch||'—')+'</span></div>'
+          +'<div class="inv-meta-item"><span class="inv-meta-label">Stock Type</span><span class="stock-badge '+stClass+'">'+stType+'</span></div>'
+          +'<div class="inv-meta-item"><span class="inv-meta-label">EXP Date</span><span class="inv-meta-val '+slClass+'">'+fmtDate(r.expDate)+'</span></div>'
+          +'<div class="inv-meta-item"><span class="inv-meta-label">Shelf Life</span><span class="inv-meta-val '+slClass+'">'+slText+'</span></div>'
+          +'<div class="inv-meta-item"><span class="inv-meta-label">MFG Date</span><span class="inv-meta-val">'+fmtDate(r.mfgDate)+'</span></div>'
+        +'</div>'
+        +'</div>';
+    });
+  });
+  document.getElementById('mSearchResults').innerHTML=html;
+}
+
+// ── Cycle Count ────────────────────────────────────────
+function mStartCC(){
+  var binId=document.getElementById('mCCBinInput').value.trim().toUpperCase();
+  if(!binId){mToast('Enter a bin ID','warn');return;}
+  mCCBin=binId;
+  mCCLines=[];
+  var binRows=inventory.filter(function(r){return r.bin&&r.bin.toUpperCase()===binId;});
+  
+  var html='<div class="cc-bin-header"><div class="cc-bin-id">'+binId+'</div>';
+  if(!binRows.length){
+    html+='<div class="cc-bin-sub">No stock in system for this bin</div></div>';
+    html+='<div class="notice info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No existing stock found. Record count below.</div>';
+    // Allow free entry for new bin
+    html+='<div class="card"><div class="card-body">';
+    html+='<p style="font-size:13px;color:var(--slate4);margin-bottom:12px">Record stock found in this empty bin:</p>';
+    html+='<label class="form-label">SKU Code</label><input class="form-input" id="ccNewSku" placeholder="e.g. MWBW001" style="margin-bottom:10px">';
+    html+='<label class="form-label">Batch No</label><input class="form-input" id="ccNewBatch" placeholder="Batch number" style="margin-bottom:10px">';
+    html+='<label class="form-label">Quantity</label><input class="form-input" id="ccNewQty" type="number" placeholder="0" style="margin-bottom:10px">';
+    html+='<button class="btn-submit" onclick="mSubmitNewCC()">Submit Count</button>';
+    html+='</div></div>';
+  } else {
+    html+='<div class="cc-bin-sub">'+binRows.length+' SKU line(s) in system</div></div>';
+    binRows.forEach(function(r,i){
+      mCCLines.push({skuCode:r.skuCode,skuName:r.skuName||'',batch:r.batch||'',systemQty:r.qty,countedQty:r.qty,stockType:r.stockType,expDate:r.expDate});
+      var days=daysUntil(r.expDate);
+      var slClass=days===null?'':days<0?'expiry-bad':days<=90?'expiry-near':'expiry-ok';
+      html+='<div class="cc-line">'
+        +'<div class="cc-line-top">'
+          +'<div><div class="cc-sku">'+r.skuCode+'</div><div class="cc-name">'+r.skuName+'</div><div class="cc-batch">Batch: '+(r.batch||'—')+' | EXP: <span class="'+slClass+'">'+fmtDate(r.expDate)+'</span></div></div>'
+          +'<div class="cc-sys-qty">SYS: '+r.qty+'</div>'
+        +'</div>'
+        +'<div class="cc-qty-row">'
+          +'<span style="font-size:12px;color:var(--slate4);flex-shrink:0">Count:</span>'
+          +'<div class="cc-input-wrap">'
+            +'<button class="cc-qty-btn" onclick="mCCAdjust('+i+',-1)">−</button>'
+            +'<input class="cc-qty-input" id="ccQty'+i+'" type="number" value="'+r.qty+'" min="0" oninput="mCCCheck('+i+')">'
+            +'<button class="cc-qty-btn" onclick="mCCAdjust('+i+',1)">+</button>'
+          +'</div>'
+          +'<span id="ccDiff'+i+'" class="cc-diff-ok">✓ Match</span>'
+        +'</div>'
+        +'</div>';
+    });
+    html+='<button class="btn-submit" onclick="mSubmitCC()">Submit Cycle Count</button>';
+    html+='<button class="btn-outline" onclick="mCCLines=[];mCCBin=\'\';document.getElementById(\'mCCContent\').innerHTML=\'\';document.getElementById(\'mCCBinInput\').value=\'\'">Clear</button>';
+  }
+  document.getElementById('mCCContent').innerHTML=html;
+}
+
+function mCCAdjust(i,delta){
+  var inp=document.getElementById('ccQty'+i);
+  if(!inp)return;
+  var v=Math.max(0,parseInt(inp.value||'0')+delta);
+  inp.value=v;
+  mCCCheck(i);
+}
+function mCCCheck(i){
+  if(!mCCLines[i])return;
+  var v=parseInt(document.getElementById('ccQty'+i).value||'0');
+  mCCLines[i].countedQty=v;
+  var diff=v-mCCLines[i].systemQty;
+  var el=document.getElementById('ccDiff'+i);
+  if(!el)return;
+  if(diff===0){el.className='cc-diff-ok';el.innerText='✓ Match';}
+  else{el.className='cc-diff-bad';el.innerText=(diff>0?'+':'')+diff;}
+}
+
+function mSubmitCC(){
+  var entries=[];
+  var diffs=0;
+  mCCLines.forEach(function(l,i){
+    var counted=parseInt(document.getElementById('ccQty'+i)?.value||'0');
+    l.countedQty=counted;
+    if(counted!==l.systemQty)diffs++;
+    entries.push({
+      bin:mCCBin,skuCode:l.skuCode,batch:l.batch,
+      systemQty:l.systemQty,countedQty:counted,
+      diff:counted-l.systemQty,expDate:l.expDate,stockType:l.stockType,
+      by:userName,time:new Date().toISOString()
+    });
+  });
+  showLoad('Saving count…');
+  callSheet('saveCycleCountLog',entries,function(){
+    hideLoad();
+    mToast('Count saved. '+diffs+' difference(s).', diffs?'warn':'success',3000);
+    document.getElementById('mCCContent').innerHTML='<div class="notice success"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>Count submitted! '+diffs+' difference(s) recorded.</span></div>';
+    document.getElementById('mCCBinInput').value='';
+    mCCBin=''; mCCLines=[];
+  },function(e){
+    hideLoad();
+    mToast('Save failed: '+e,'error',4000);
+  });
+}
+
+function mSubmitNewCC(){
+  var sku=(document.getElementById('ccNewSku')?.value||'').trim().toUpperCase();
+  var batch=(document.getElementById('ccNewBatch')?.value||'').trim();
+  var qty=parseInt(document.getElementById('ccNewQty')?.value||'0');
+  if(!sku){mToast('Enter SKU Code','warn');return;}
+  var entry=[{bin:mCCBin,skuCode:sku,batch:batch,systemQty:0,countedQty:qty,diff:qty,by:userName,time:new Date().toISOString()}];
+  showLoad('Saving…');
+  callSheet('saveCycleCountLog',entry,function(){
+    hideLoad();
+    mToast('Count saved!','success',2500);
+    document.getElementById('mCCContent').innerHTML='';
+    document.getElementById('mCCBinInput').value='';
+  },function(e){hideLoad();mToast('Failed: '+e,'error');});
+}
+
+// ── Putaway Plan ────────────────────────────────────────
+function mRenderPutaway(){
+  var el=document.getElementById('mPutawayContent');
+  if(!putawayPlan||!putawayPlan.length){
+    el.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/></svg><p>No putaway plan. Generate from desktop WMS.</p></div>';
+    return;
+  }
+  var warns=putawayPlan.filter(function(r){return r.warning;}).length;
+  var done=Object.keys(mDoneBins).length;
+  var html='';
+  if(warns){
+    html+='<div class="notice warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>'+warns+' pallet(s) have no bin — tap ✎ to assign</span></div>';
+  }
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+  html+='<span class="section-title" style="margin:0">'+putawayPlan.length+' pallets | '+done+' done</span>';
+  html+='<button class="print-btn" onclick="window.print()"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>';
+  html+='</div>';
+
+  var lastKey='';
+  putawayPlan.forEach(function(r,i){
+    var key=r.sku+'|'+(r.batch||'');
+    if(key!==lastKey){
+      lastKey=key;
+      var total=putawayPlan.filter(function(x){return x.sku===r.sku&&x.batch===r.batch;}).reduce(function(s,x){return s+(x.allocQty||0);},0);
+      html+='<div style="font-size:11px;font-weight:700;color:var(--slate4);margin:'+(i>0?'16px':0)+' 0 8px;border-bottom:1px solid var(--border);padding-bottom:6px">'
+        +'<span style="font-family:monospace;background:var(--teal-l);color:var(--teal-d);padding:2px 8px;border-radius:4px;font-size:12px">'+r.sku+'</span>'
+        +'&nbsp;'+(r.skuName||'')+'&nbsp;·&nbsp;Batch: '+(r.batch||'—')+'&nbsp;·&nbsp;Total: '+total.toLocaleString()+' units'
+        +'</div>';
+    }
+    var isDone=mDoneBins[r.binId+'|'+i];
+    html+='<div class="putaway-card'+(r.warning?' warn':'')+(isDone?' done':'')+'">'
+      +'<div class="putaway-pallet">'
+        +'<span class="putaway-pallet-no">Pallet #'+(r.palletNo||i+1)+'</span>'
+        +'<span class="putaway-qty-chip">'+(r.allocQty||0)+' units</span>'
+      +'</div>'
+      +'<div class="putaway-sku-info" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
+        +'<span class="putaway-chip chip-class">'+(r.binBrand||r.cls||'—')+'</span>'
+        +'<span class="putaway-chip chip-fsn">FSN-'+(r.cls||'—')+'</span>'
+        +(r.isOverflow?'<span class="putaway-chip chip-overflow">⚠ OVERFLOW</span>':'')
+        +(r.isFullPallet?'<span class="putaway-chip" style="background:var(--green-l);color:var(--green-d)">✓ Full Pallet</span>':'<span class="putaway-chip" style="background:var(--amber-l);color:var(--amber-d)">Partial</span>')
+      +'</div>'
+      +'<div class="putaway-bin-row">'
+        +'<span class="putaway-bin-label">Bin</span>'
+        +'<span class="putaway-bin-val'+(r.warning?' warn':'')+'">'+( r.warning?'⚠ NO BIN':r.binId)+'</span>'
+        +'<button class="putaway-change-btn" onclick="mChangeBin('+i+')">✎ Change</button>'
+      +'</div>'
+      +(r.allocBoxes?'<div style="font-size:12px;color:var(--slate4);margin-bottom:8px">'+r.allocBoxes+' boxes on this pallet</div>':'')
+      +'<button class="putaway-done-btn'+(isDone?' undone':'')+'" onclick="mMarkDone('+i+',this)">'
+        +(isDone?'Undo':'✓ Done — Pallet Placed')
+      +'</button>'
+      +'</div>';
+  });
+  el.innerHTML=html;
+}
+
+function mMarkDone(i,btn){
+  var r=putawayPlan[i];
+  var key=r.binId+'|'+i;
+  if(mDoneBins[key]){ delete mDoneBins[key]; }
+  else { mDoneBins[key]=true; }
+  mRenderPutaway();
+}
+
+function mChangeBin(idx){
+  var row=putawayPlan[idx];
+  if(!row)return;
+  var brand=row.binBrand||'';
+  var fsn=row.cls||'B';
+  var usedBins=new Set(putawayPlan.map(function(p){return p.binId;}).filter(function(b){return b&&b!=='NO_BIN';}));
+  usedBins.delete(row.binId);
+  var same=binMaster.filter(function(b){return b.status==='Empty'&&!usedBins.has(b.id)&&b.brand===brand&&b.fsn===fsn;});
+  var sameBrand=binMaster.filter(function(b){return b.status==='Empty'&&!usedBins.has(b.id)&&b.brand===brand&&b.fsn!==fsn;});
+  var other=binMaster.filter(function(b){return b.status==='Empty'&&!usedBins.has(b.id)&&b.brand!==brand;}).slice(0,20);
+  if(!same.length&&!sameBrand.length&&!other.length){mToast('No empty bins available','error');return;}
+  var title='Change Bin — Pallet #'+(row.palletNo||idx+1);
+  var content='<div style="font-size:12px;color:var(--slate4);margin-bottom:12px">SKU: <b>'+row.sku+'</b> | Batch: <b>'+(row.batch||'—')+'</b><br>Current: <b>'+row.binId+'</b></div>';
+  if(same.length){
+    content+='<div class="section-title">✅ Recommended (Same Brand + FSN)</div>';
+    same.slice(0,10).forEach(function(b){
+      content+='<div class="bin-option recommended" onclick="mApplyBinChange('+idx+',\''+b.id+'\')">'
+        +'<div class="bin-option-id">'+b.id+'</div>'
+        +'<div class="bin-option-meta">'+b.brand+' · FSN-'+b.fsn+'</div>'
+        +'</div>';
+    });
+  }
+  if(sameBrand.length){
+    content+='<div class="section-title" style="margin-top:12px">Same Brand, Different FSN</div>';
+    sameBrand.slice(0,5).forEach(function(b){
+      content+='<div class="bin-option" onclick="mApplyBinChange('+idx+',\''+b.id+'\')">'
+        +'<div class="bin-option-id">'+b.id+'</div>'
+        +'<div class="bin-option-meta">'+b.brand+' · FSN-'+b.fsn+'</div>'
+        +'</div>';
+    });
+  }
+  if(other.length){
+    content+='<div class="section-title" style="margin-top:12px">Other / Overflow</div>';
+    other.slice(0,5).forEach(function(b){
+      content+='<div class="bin-option" onclick="mApplyBinChange('+idx+',\''+b.id+'\')">'
+        +'<div class="bin-option-id">'+b.id+'</div>'
+        +'<div class="bin-option-meta">'+b.brand+' · FSN-'+b.fsn+'</div>'
+        +'</div>';
+    });
+  }
+  document.getElementById('bcmTitle').innerText=title;
+  document.getElementById('bcmContent').innerHTML=content;
+  document.getElementById('binChangeModal').classList.add('open');
+}
+
+function mApplyBinChange(idx,newBin){
+  putawayPlan[idx].binId=newBin;
+  putawayPlan[idx].warning=false;
+  lsSet('putaway',putawayPlan);
+  document.getElementById('binChangeModal').classList.remove('open');
+  mRenderPutaway();
+  mToast('Bin changed to '+newBin,'success');
+}
+
+document.getElementById('binChangeModal').addEventListener('click',function(e){
+  if(e.target===this)this.classList.remove('open');
+});
+
+// ── FSN Plan (view only) ────────────────────────────────
+function inferBrand(code){
+  var p=String(code||'').slice(0,4).toUpperCase();
+  if(p==='MWBW')return 'Bodywise';
+  if(p==='MWLJ')return 'LittleJoys';
+  if(p==='MWMM')return 'ManMatters';
+  return 'Unknown';
+}
+
+function mBuildFSN(){
+  if(!inventory.length||!binMaster.length)return;
+  var skuMap={};
+  (skuMaster||[]).forEach(function(s){skuMap[String(s.code||'').trim()]=s;});
+  var occupied=new Set();
+  inventory.forEach(function(r){if(r.bin&&r.qty>0)occupied.add(r.bin);});
+  var pool={};
+  binMaster.filter(function(b){return b.id&&!occupied.has(b.id)&&['allocated','blocked'].indexOf(String(b.status||'').toLowerCase())===-1;})
+    .sort(function(a,b){return (a.level||0)-(b.level||0);})
+    .forEach(function(b){var k=String(b.brand||'Unknown')+'|'+String(b.fsn||'B').toUpperCase();if(!pool[k])pool[k]=[];pool[k].push(b.id);});
+  var ptr={};
+  function nextEmpty(brand,cls){
+    var zones=[brand,'Overflow','Unknown'];
+    for(var z=0;z<zones.length;z++){var k=zones[z]+'|'+cls;if(!ptr[k])ptr[k]=0;var arr=pool[k]||[];if(ptr[k]<arr.length)return arr[ptr[k]++];}
+    return null;
+  }
+  var today=new Date();today.setHours(0,0,0,0);
+  var agg={};
+  inventory.forEach(function(r){
+    if(!r.bin||!r.skuCode||r.qty<=0)return;
+    var st=String(r.stockType||'').toUpperCase();
+    if(st==='DAMAGE'||st==='BAD'||st==='BAD_INVENTORY'||st==='BLOCKED')return;
+    var k=r.bin+'|||'+r.skuCode+'|||'+(r.batch||'');
+    if(!agg[k])agg[k]={bin:r.bin,skuCode:r.skuCode,skuName:r.skuName||'',batch:r.batch||'',expDate:r.expDate||'',mfgDate:r.mfgDate||'',qty:0};
+    agg[k].qty+=(r.qty||0);
+  });
+  var binById={};
+  binMaster.forEach(function(b){if(b.id)binById[b.id]=b;});
+  fsnPlanRows=[];
+  Object.keys(agg).forEach(function(key){
+    var e=agg[key];
+    var bi=binById[e.bin];if(!bi)return;
+    var sku=skuMap[e.skuCode];
+    var skuCls=String((sku&&sku.cls)||'B').toUpperCase();
+    var binCls=String(bi.fsn||'B').toUpperCase();
+    var brand=inferBrand(e.skuCode);
+    var sl=shelfPct(e.mfgDate,e.expDate);
+    var moveType=null,tgt=null,reason='';
+    if(skuCls==='A'&&(binCls==='B'||binCls==='C')){moveType='BRING_DOWN';tgt='A';reason='A-class on Class '+binCls+' — bring to Class A';}
+    else if((skuCls==='B'||skuCls==='C')&&binCls==='A'){moveType='MOVE_UP';tgt=skuCls;reason=skuCls+'-class on Class A — free for fast movers';}
+    if(!moveType)return;
+    fsnPlanRows.push({moveType:moveType,brand:brand,skuCode:e.skuCode,skuName:(sku&&sku.name)||e.skuName,batch:e.batch,expDate:e.expDate,shelfLifePct:sl,cls:skuCls,qty:e.qty,currentBin:e.bin,currentClass:binCls,suggestedBin:nextEmpty(brand,tgt)||'—',targetClass:tgt,reason:reason});
+  });
+  fsnPlanRows.sort(function(a,b){return a.moveType!==b.moveType?(a.moveType==='MOVE_UP'?-1:1):b.qty-a.qty;});
+}
+
+function mUpdateFSNShelfFilter(which,value){
+  var v=Math.max(0,Math.min(100,parseInt(value||0)));
+  if(which==='min')mFSNShelfMin=v;
+  if(which==='max')mFSNShelfMax=v;
+  if(mFSNShelfMin>mFSNShelfMax){
+    if(which==='min')mFSNShelfMax=mFSNShelfMin;
+    else mFSNShelfMin=mFSNShelfMax;
+  }
+  [['mFSNMinNum',mFSNShelfMin],['mFSNMinRange',mFSNShelfMin],['mFSNMaxNum',mFSNShelfMax],['mFSNMaxRange',mFSNShelfMax]].forEach(function(x){
+    var el=document.getElementById(x[0]); if(el)el.value=x[1];
+  });
+  var minLab=document.getElementById('mFSNMinLabel'), maxLab=document.getElementById('mFSNMaxLabel');
+  if(minLab)minLab.innerText=mFSNShelfMin;
+  if(maxLab)maxLab.innerText=mFSNShelfMax;
+  mRenderFSN();
+}
+
+function mRenderFSN(){
+  var el=document.getElementById('mFSNContent');
+  if(!fsnPlanRows.length){
+    el.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><p>No FSN moves. Data loading or all SKUs correctly placed.</p></div>';
+    return;
+  }
+  var q=(document.getElementById('mFSNSearch')?.value||'').toLowerCase();
+  var moveF=(document.getElementById('mFSNMove')?.value||'');
+  var brandF=(document.getElementById('mFSNBrand')?.value||'');
+  var rows=fsnPlanRows.filter(function(r){
+    if(moveF&&r.moveType!==moveF)return false;
+    if(brandF&&r.brand!==brandF)return false;
+    if((mFSNShelfMin>0||mFSNShelfMax<100)&&r.shelfLifePct===null)return false;
+    if(r.shelfLifePct!==null&&(r.shelfLifePct<mFSNShelfMin||r.shelfLifePct>mFSNShelfMax))return false;
+    if(q&&(r.skuCode+' '+r.skuName+' '+(r.batch||'')+' '+r.currentBin).toLowerCase().indexOf(q)===-1)return false;
+    return true;
+  });
+  if(!rows.length){el.innerHTML='<div class="empty-state"><p>No results</p></div>';return;}
+  var html='<div class="section-title">'+rows.length+' move(s)</div>';
+  rows.slice(0,100).forEach(function(r){
+    var isUp=r.moveType==='MOVE_UP';
+    var sl=r.shelfLifePct;
+    var slClass=sl===null?'':sl>=75?'sl-ok':sl>=50?'sl-near':'sl-low';
+    var noSugg=r.suggestedBin==='—';
+    html+='<div class="fsn-row '+(isUp?'move-up':'bring-down')+'">'
+      +'<div class="fsn-row-top">'
+        +'<div>'
+          +'<span class="fsn-move-badge '+(isUp?'badge-up':'badge-down')+'">'+(isUp?'🔴 Move Up':'🟢 Bring Down')+'</span>'
+          +'<div style="font-size:12px;font-family:monospace;font-weight:700;color:var(--teal);margin-top:4px">'+r.skuCode+'</div>'
+          +'<div style="font-size:12px;color:var(--slate3)">'+r.skuName+'</div>'
+          +(r.batch?'<div style="font-size:11px;color:var(--slate4)">Batch: '+r.batch+'</div>':'')
+        +'</div>'
+        +'<div style="text-align:right;flex-shrink:0">'
+          +'<div style="font-size:18px;font-weight:700;color:var(--slate)">'+r.qty.toLocaleString()+'</div>'
+          +'<div style="font-size:10px;color:var(--slate4)">units</div>'
+          +(sl!==null?'<div class="fsn-sl '+slClass+'">'+sl+'%</div>':'')
+        +'</div>'
+      +'</div>'
+      +'<div class="fsn-bins">'
+        +'<span class="fsn-bin fsn-from">'+r.currentBin+'</span>'
+        +'<span class="fsn-arrow">→</span>'
+        +'<span class="fsn-bin '+(noSugg?'':'fsn-to')+'" style="'+(noSugg?'background:var(--red-l);color:var(--red-d)':'')+'">'+r.suggestedBin+'</span>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--slate4);margin-top:6px">'+r.reason+'</div>'
+      +'</div>';
+  });
+  if(rows.length>100) html+='<div style="text-align:center;padding:12px;font-size:12px;color:var(--slate4)">Showing first 100 of '+rows.length+' results</div>';
+  el.innerHTML=html;
+}
+
+// ── Expiry Watch ───────────────────────────────────────
+function mFilterExpiry(f){
+  mExpiryFilter=f;
+  ['all','expired','near'].forEach(function(t){
+    var btn=document.getElementById('expBtn-'+t);
+    if(!btn)return;
+    var active=t===f;
+    btn.style.background=active?'var(--red)':'#fff';
+    btn.style.color=active?'#fff':'var(--slate3)';
+    btn.style.borderColor=active?'var(--red)':'var(--border)';
+  });
+  mRenderExpiry();
+}
+
+function mRenderExpiry(){
+  var el=document.getElementById('mExpiryContent');
+  var today=new Date();today.setHours(0,0,0,0);
+  // Build batch-level expiry list
+  var batches={};
+  inventory.forEach(function(r){
+    var st=String(r.stockType||'').toUpperCase();
+    if(st==='DAMAGE'||st==='BAD'||st==='BAD_INVENTORY')return;
+    if(!r.expDate)return;
+    var exp=parseDate(r.expDate);
+    if(!exp)return;
+    var days=Math.round((exp-today)/(1000*60*60*24));
+    if(days>90)return; // Only expired or near-expiry
+    var key=r.skuCode+'|||'+(r.batch||'')+'|||'+r.bin;
+    if(!batches[key])batches[key]={skuCode:r.skuCode,skuName:r.skuName||'',batch:r.batch||'',bin:r.bin,expDate:r.expDate,days:days,qty:0};
+    batches[key].qty+=(r.qty||0);
+  });
+  var rows=Object.values(batches);
+  if(mExpiryFilter==='expired') rows=rows.filter(function(r){return r.days<0;});
+  if(mExpiryFilter==='near')    rows=rows.filter(function(r){return r.days>=0&&r.days<=90;});
+  rows.sort(function(a,b){return a.days-b.days;});
+  if(!rows.length){
+    el.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No '+(mExpiryFilter==='all'?'expired or near-expiry':mExpiryFilter)+' products found</p></div>';
+    return;
+  }
+  var html='<div class="section-title">'+rows.length+' batch-bin(s) found</div>';
+  rows.forEach(function(r){
+    var isExp=r.days<0;
+    html+='<div class="expiry-row '+(isExp?'expired':'near')+'">'
+      +'<span class="expiry-flag '+(isExp?'flag-expired':'flag-near')+'">'+(isExp?'🔴 EXPIRED':'🟡 NEAR EXPIRY')+'</span>'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
+        +'<div>'
+          +'<div style="font-size:12px;font-family:monospace;font-weight:700;color:var(--teal)">'+r.skuCode+'</div>'
+          +'<div style="font-size:12px;color:var(--slate3)">'+r.skuName+'</div>'
+          +'<div style="font-size:11px;color:var(--slate4)">Batch: '+(r.batch||'—')+'</div>'
+        +'</div>'
+        +'<div style="text-align:right;flex-shrink:0">'
+          +'<div style="font-size:18px;font-weight:700;color:var(--slate)">'+r.qty.toLocaleString()+'</div>'
+          +'<div style="font-size:10px;color:var(--slate4)">units</div>'
+        +'</div>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center">'
+        +'<span style="font-family:monospace;font-size:12px;font-weight:700;background:var(--teal-l);color:var(--teal-d);padding:2px 8px;border-radius:4px">'+r.bin+'</span>'
+        +'<span style="font-size:12px;font-weight:700;color:'+(isExp?'var(--red)':'var(--amber)')+'">'+(isExp?Math.abs(r.days)+'d ago':r.days+'d left')+'</span>'
+        +'<span style="font-size:11px;color:var(--slate4)">EXP: '+fmtDate(r.expDate)+'</span>'
+      +'</div>'
+      +'</div>';
+  });
+  el.innerHTML=html;
+}
+
+// ── Startup ────────────────────────────────────────────
+(function init(){
+  // GAS URL is hardcoded — no manual entry needed on mobile
+  GAS_URL = 'https://script.google.com/a/macros/mosaicwellness.in/s/AKfycbwOftOsHKyol0NPhQFy8waSCT5GFdaPkrqt45U8PEip8kLVn9tXJdd3HR1_ni5xbcM9/exec';
+  lsSet('gasUrl', GAS_URL); // Keep localStorage in sync for callSheet()
+
+  // Hide the URL setup screen — not needed
+  var gasSetup = document.getElementById('gasSetup');
+  if(gasSetup) gasSetup.style.display = 'none';
+
+  // Check for cached session — pre-fill username
+  var lastUser = ls('lastUser');
+  if(lastUser && lastUser.userId){
+    document.getElementById('mLoginUser').value = lastUser.userId;
+  }
+  document.getElementById('loginStatus').innerText = 'Ready — sign in to continue';
+
+  // Load cached data in background (available immediately before fresh sync)
+  inventory    = ls('inv')     || [];
+  skuMaster    = ls('sku')     || [];
+  binMaster    = ls('bin')     || [];
+  putawayPlan  = mLoadPutawayPlan();
+})();
+
+// Mobile fixes: compact viewport handling and bin suggestions
+var mBinSuggestBlurTimer=null;
+var mBinChangeState=null;
+function mNormBinId(v){return String(v||'').trim().toUpperCase();}
+function mIsEmptyBinStatus(status){
+  var s=String(status||'').trim().toLowerCase();
+  return !s||s==='empty'||s==='available'||s==='free';
+}
+function mCollectBins(emptyOnly){
+  var map={};
+  (binMaster||[]).forEach(function(b){
+    var id=mNormBinId(b.id||b.binId||b.bin||b.shelf||b.shelfNo);
+    if(!id)return;
+    if(emptyOnly&&!mIsEmptyBinStatus(b.status))return;
+    map[id]={id:id,brand:b.brand||b.zone||'',fsn:b.fsn||b.cls||'',status:b.status||''};
+  });
+  if(!emptyOnly){
+    (inventory||[]).forEach(function(r){
+      var id=mNormBinId(r.bin||r.binId);
+      if(id&&!map[id])map[id]={id:id,brand:'',fsn:'',status:'Stock'};
+    });
+    (putawayPlan||[]).forEach(function(r){
+      var id=mNormBinId(r.binId);
+      if(id&&id!=='NO_BIN'&&!map[id])map[id]={id:id,brand:r.binBrand||'',fsn:r.cls||'',status:'Planned'};
+    });
+  }
+  return Object.values(map).sort(function(a,b){return a.id.localeCompare(b.id,undefined,{numeric:true});});
+}
+function mFindBinSuggestions(q,opts){
+  q=mNormBinId(q);
+  if(q.length<2)return [];
+  opts=opts||{};
+  var bins=(opts.source||mCollectBins(!!opts.emptyOnly));
+  var starts=[], contains=[];
+  bins.forEach(function(b){
+    var id=mNormBinId(b.id);
+    if(id.indexOf(q)===0)starts.push(b);
+    else if(id.indexOf(q)>-1)contains.push(b);
+  });
+  return starts.concat(contains).slice(0,opts.limit||30);
+}
+function mEnsureSuggestPanel(input){
+  var host=input.closest('.search-bar')||input.parentElement;
+  if(!host)return null;
+  if(getComputedStyle(host).position==='static')host.style.position='relative';
+  var panel=host.querySelector('.bin-suggest-panel');
+  if(!panel){
+    panel=document.createElement('div');
+    panel.className='bin-suggest-panel';
+    host.appendChild(panel);
+  }
+  return panel;
+}
+function mShowBinSuggestions(input,opts){
+  opts=opts||{};
+  if(opts.mode==='inventory'&&mSearchMode!=='bin'){mHideBinSuggestions(input);return;}
+  var panel=mEnsureSuggestPanel(input);
+  if(!panel)return;
+  var rows=mFindBinSuggestions(input.value,opts);
+  if(!rows.length){
+    panel.innerHTML=input.value.trim().length>=2?'<div class="bin-suggest-empty">No matching bins</div>':'';
+    panel.classList.toggle('open',input.value.trim().length>=2);
+    return;
+  }
+  panel.innerHTML=rows.map(function(b){
+    var meta=[b.status,b.brand,b.fsn?('FSN-'+b.fsn):''].filter(Boolean).join(' | ');
+    return '<button type="button" class="bin-suggest-item" data-bin="'+b.id+'"><span class="bin-suggest-id">'+b.id+'</span><span class="bin-suggest-meta">'+(meta||'Bin')+'</span></button>';
+  }).join('');
+  panel.classList.add('open');
+  Array.prototype.forEach.call(panel.querySelectorAll('.bin-suggest-item'),function(btn){
+    btn.onclick=function(){
+      input.value=this.getAttribute('data-bin');
+      panel.classList.remove('open');
+      if(opts.afterSelect==='search')mSearch();
+      if(opts.afterSelect==='cc')mStartCC();
+    };
+  });
+}
+function mHideBinSuggestions(input){
+  var host=input&&(input.closest('.search-bar')||input.parentElement);
+  var panel=host&&host.querySelector('.bin-suggest-panel');
+  if(panel)panel.classList.remove('open');
+}
+function mBindBinSuggestInput(id,opts){
+  var input=document.getElementById(id);
+  if(!input||input.dataset.binSuggestBound)return;
+  input.dataset.binSuggestBound='1';
+  input.setAttribute('autocomplete','off');
+  input.addEventListener('input',function(){this.value=mNormBinId(this.value);mShowBinSuggestions(this,opts);});
+  input.addEventListener('focus',function(){mShowBinSuggestions(this,opts);});
+  input.addEventListener('blur',function(){var el=this;clearTimeout(mBinSuggestBlurTimer);mBinSuggestBlurTimer=setTimeout(function(){mHideBinSuggestions(el);},160);});
+}
+function mRenderBinChangeOptions(q){
+  if(!mBinChangeState)return;
+  var idx=mBinChangeState.idx;
+  var rows=mFindBinSuggestions(q,{source:mBinChangeState.available,limit:80});
+  if(!q)rows=mBinChangeState.available.slice(0,40);
+  var html='';
+  if(!rows.length){
+    html='<div class="bin-suggest-empty">No available bins match this text</div>';
+  } else {
+    html=rows.map(function(b){
+      var rec=(b.brand===mBinChangeState.brand&&String(b.fsn).toUpperCase()===String(mBinChangeState.fsn).toUpperCase());
+      return '<div class="bin-option '+(rec?'recommended':'')+'" onclick="mApplyBinChange('+idx+',\''+b.id+'\')">'
+        +'<div class="bin-option-id">'+b.id+'</div>'
+        +'<div class="bin-option-meta">'+[b.status,b.brand,b.fsn?('FSN-'+b.fsn):''].filter(Boolean).join(' | ')+'</div>'
+        +'</div>';
+    }).join('');
+  }
+  var list=document.getElementById('mChangeBinList');
+  if(list)list.innerHTML=html;
+}
+function mMobileChangeBin(idx){
+  var row=putawayPlan[idx];
+  if(!row)return;
+  var brand=row.binBrand||'';
+  var fsn=row.cls||'B';
+  var usedBins=new Set(putawayPlan.map(function(p){return mNormBinId(p.binId);}).filter(function(b){return b&&b!=='NO_BIN';}));
+  usedBins.delete(mNormBinId(row.binId));
+  var available=mCollectBins(true).filter(function(b){return !usedBins.has(b.id);});
+  available.sort(function(a,b){
+    var ar=(a.brand===brand?0:1)+(String(a.fsn).toUpperCase()===String(fsn).toUpperCase()?0:2);
+    var br=(b.brand===brand?0:1)+(String(b.fsn).toUpperCase()===String(fsn).toUpperCase()?0:2);
+    return ar-br||a.id.localeCompare(b.id,undefined,{numeric:true});
+  });
+  if(!available.length){mToast('No empty bins available','error');return;}
+  mBinChangeState={idx:idx,brand:brand,fsn:fsn,available:available};
+  document.getElementById('bcmTitle').innerText='Change Bin - Pallet #'+(row.palletNo||idx+1);
+  document.getElementById('bcmContent').innerHTML='<div style="font-size:12px;color:var(--slate4);margin-bottom:12px">SKU: <b>'+row.sku+'</b> | Batch: <b>'+(row.batch||'-')+'</b><br>Current: <b>'+row.binId+'</b></div>'
+    +'<input class="bin-filter-input" id="mChangeBinSearch" placeholder="Type R1- to filter bins" autocorrect="off" autocapitalize="characters" spellcheck="false">'
+    +'<div class="section-title">Available bins</div><div id="mChangeBinList"></div>';
+  document.getElementById('binChangeModal').classList.add('open');
+  var inp=document.getElementById('mChangeBinSearch');
+  inp.addEventListener('input',function(){this.value=mNormBinId(this.value);mRenderBinChangeOptions(this.value);});
+  mRenderBinChangeOptions('');
+  setTimeout(function(){inp.focus();},80);
+}
+function mApplyPhoneScaleFix(){
+  var screenW=Math.min(screen.width||0, screen.availWidth||screen.width||0) || 0;
+  var screenH=Math.min(screen.height||0, screen.availHeight||screen.height||0) || 0;
+  var layoutW=window.innerWidth||document.documentElement.clientWidth||0;
+  var layoutH=window.innerHeight||document.documentElement.clientHeight||0;
+  var isPhone=/Android|iPhone|iPod/i.test(navigator.userAgent) || (screenW>0&&screenW<=480);
+  if(!isPhone || !screenW || layoutW<=screenW*1.25){
+    document.body.classList.remove('force-phone-scale');
+    return;
+  }
+  var scale=layoutW/screenW;
+  var cssH=Math.max(screenH || Math.round(layoutH/scale), Math.round(layoutH/scale));
+  document.documentElement.style.setProperty('--phone-scale', scale);
+  document.documentElement.style.setProperty('--phone-css-width', screenW+'px');
+  document.documentElement.style.setProperty('--phone-css-height', cssH+'px');
+  document.body.classList.add('force-phone-scale');
+}
+(function mApplyMobileFixes(){
+  mApplyPhoneScaleFix();
+  window.addEventListener('resize',mApplyPhoneScaleFix);
+  window.addEventListener('orientationchange',function(){setTimeout(mApplyPhoneScaleFix,250);});
+  mBindBinSuggestInput('mSearchInput',{mode:'inventory',afterSelect:'search',limit:30});
+  mBindBinSuggestInput('mCCBinInput',{afterSelect:'cc',limit:30});
+  if(typeof mChangeBin==='function')mChangeBin=mMobileChangeBin;
+})();
+</script>
+</body>
+</html>
