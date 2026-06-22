@@ -298,13 +298,13 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
 
   <div class="layout">
     <nav class="sidebar">
-      <div class="nav-section">
+      <div class="nav-section" data-section-group="OVERVIEW">
         <div class="nav-label">Overview</div>
         <div class="nav-item active" onclick="showSection('dashboard',this)">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
         </div>
       </div>
-      <div class="nav-section">
+      <div class="nav-section" data-section-group="INBOUND">
         <div class="nav-label">Inbound</div>
         <div class="nav-item" onclick="showSection('grn',this);initGRNSection()">
           <svg viewBox="0 0 24 24"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>GRN Entry
@@ -316,7 +316,7 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
           <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>Putaway Plan
         </div>
       </div>
-      <div class="nav-section">
+      <div class="nav-section" data-section-group="INVENTORY">
         <div class="nav-label">Inventory</div>
         <div class="nav-item" onclick="showSection('dump',this)">
           <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/></svg>Inventory Dump
@@ -331,7 +331,7 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
           <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/></svg>SKU Master
         </div>
       </div>
-      <div class="nav-section">
+      <div class="nav-section" data-section-group="OPERATIONS">
         <div class="nav-label">Operations</div>
         <div class="nav-item" onclick="showSection('currentinventory',this);initCurrentInventory()">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M3 9h18M3 14h18M8 9v9M16 9v9"/></svg>Current Inventory
@@ -343,8 +343,7 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
           <svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>Adjustment Log
         </div>
       </div>
-      <div class="nav-section">
-              <div class="nav-section">
+      <div class="nav-section" data-section-group="PLANNING">
         <div class="nav-label">Planning</div>
         <div class="nav-item" onclick="showSection('fsnReplen',this);initFSNReplen()">
           <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>FSN Replenishment
@@ -356,7 +355,8 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Expiry Watch
         </div>
       </div>
-      <div class="nav-label">Reports</div>
+      <div class="nav-section" data-section-group="REPORTS">
+        <div class="nav-label">Reports</div>
         <div class="nav-item" onclick="showSection('diffcheck',this)">
           <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Uniwire Diff Check
         </div>
@@ -1391,8 +1391,8 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
 // v6: Users now loaded from Google Sheet USERS tab via login()
 // Hardcoded users kept ONLY as emergency offline fallback
 const OFFLINE_USERS=[
-  {id:'admin', pw:'admin123', name:'Admin User',  role:'ADMIN'},
-  {id:'wms1',  pw:'wms123',  name:'WMS Operator', role:'OPERATOR'},
+  {id:'admin', pw:'admin123', name:'Admin User',  role:'ADMIN', allowedSections:'ALL'},
+  {id:'wms1',  pw:'wms123',  name:'WMS Operator', role:'OPERATOR', allowedSections:'INBOUND'},
 ];
 
 function ls(k){try{return JSON.parse(localStorage.getItem('mwwms2_'+k)||'null');}catch{return null;}}
@@ -1497,6 +1497,7 @@ let grnMode     = 'manual';
 let userName     = '';
 let userRole     = 'OPERATOR'; // ADMIN or OPERATOR — controls UI visibility
 let userIdGlobal = '';
+let userSections = ['OVERVIEW','REPORTS'];
 let _isOnline        = true;  // tracks GAS connectivity
 let gatewayPasses    = [];   // gatepass rows loaded from GATEPASS_DUMP
 let _gatewayPassesLoaded = false;
@@ -1506,6 +1507,64 @@ let diffRows    = [];
 let dumpRows    = [];
 let ccLog       = [];
 let ccLines     = [];
+
+const ALL_SECTION_GROUPS = ['OVERVIEW','INBOUND','INVENTORY','OPERATIONS','PLANNING','REPORTS'];
+const SECTION_GROUP_BY_VIEW = {
+  dashboard:'OVERVIEW',
+  grn:'INBOUND',
+  grnList:'INBOUND',
+  putaway:'INBOUND',
+  dump:'INVENTORY',
+  gatepass:'INVENTORY',
+  bins:'INVENTORY',
+  skumaster:'INVENTORY',
+  currentinventory:'OPERATIONS',
+  cyclecount:'OPERATIONS',
+  adjustment:'OPERATIONS',
+  fsnReplen:'PLANNING',
+  binConsolidate:'PLANNING',
+  expiryWatch:'PLANNING',
+  diffcheck:'REPORTS'
+};
+
+function parseAllowedSections_(raw, role){
+  const normalizedRole = String(role || '').trim().toUpperCase();
+  const allowed = new Set(['OVERVIEW','REPORTS']); // Dashboard + Reports for every user
+  String(raw || '').split(/[,\|;]/).forEach(part => {
+    const section = part.trim().toUpperCase();
+    if(section) allowed.add(section);
+  });
+  if(normalizedRole === 'ADMIN') allowed.add('ALL');
+  if(allowed.has('ALL')) ALL_SECTION_GROUPS.forEach(section => allowed.add(section));
+  if(normalizedRole !== 'ADMIN') allowed.delete('INVENTORY'); // Inventory remains admin-only
+  return Array.from(allowed);
+}
+
+function canAccessSection_(section){
+  const s = String(section || '').trim().toUpperCase();
+  return userSections.includes('ALL') || userSections.includes(s);
+}
+
+function applySectionAccess(){
+  document.querySelectorAll('[data-section-group]').forEach(el => {
+    const section = el.getAttribute('data-section-group');
+    el.style.display = canAccessSection_(section) ? '' : 'none';
+  });
+  document.querySelectorAll('.section').forEach(el => {
+    const name = String(el.id || '').replace(/^s-/,'');
+    const group = SECTION_GROUP_BY_VIEW[name] || 'OVERVIEW';
+    el.style.display = canAccessSection_(group) ? '' : 'none';
+  });
+  if(canAccessSection_('INVENTORY')) document.body.classList.add('can-inventory');
+  else document.body.classList.remove('can-inventory');
+
+  const active = document.querySelector('.section.active');
+  if(active){
+    const activeName = String(active.id || '').replace(/^s-/,'');
+    const activeGroup = SECTION_GROUP_BY_VIEW[activeName] || 'OVERVIEW';
+    if(!canAccessSection_(activeGroup)) showSection('dashboard', document.querySelector('.nav-item[onclick*="dashboard"]'));
+  }
+}
 
 function saveAll(){
   lsSet('sku',skuMaster);    // SKU master
@@ -1756,7 +1815,7 @@ function doLogin(){
     function(data){
       if(btn){ btn.disabled = false; btn.innerText = 'Sign In'; }
       if(data && data.success){
-        _completeLogin(data.name, data.role, data.userId, false);
+        _completeLogin(data.name, data.role, data.userId, false, data.allowedSections);
       } else {
         err.innerText = (data && data.message) || 'Invalid credentials';
       }
@@ -1773,7 +1832,7 @@ function doLogin(){
       // GAS URL not configured — use offline fallback
       const offline = OFFLINE_USERS.find(x => x.id === u && x.pw === p);
       if(offline){
-        _completeLogin(offline.name, offline.role, offline.id, true);
+        _completeLogin(offline.name, offline.role, offline.id, true, offline.allowedSections);
       } else {
         err.innerText = 'Server not configured and credentials not in offline list.';
       }
@@ -1782,13 +1841,14 @@ function doLogin(){
 }
 
 /** Shared post-login setup — called whether online or offline */
-function _completeLogin(name, role, userId, isOffline){
+function _completeLogin(name, role, userId, isOffline, allowedSections){
   userName     = name;
   userRole     = (role || 'OPERATOR').toUpperCase();
   userIdGlobal = userId;
+  userSections = parseAllowedSections_(allowedSections, userRole);
 
   // Cache last successful login so offline works on re-open
-  lsSet('lastUser', { name, role: userRole, userId, ts: Date.now() });
+  lsSet('lastUser', { name, role: userRole, userId, allowedSections: userSections.join(','), ts: Date.now() });
 
   // Apply admin class to body — shows/hides admin-only elements
   if(userRole === 'ADMIN'){
@@ -1799,6 +1859,7 @@ function _completeLogin(name, role, userId, isOffline){
 
   document.getElementById('loginName').innerText = name;
   document.getElementById('avatarEl').innerText  = name.charAt(0).toUpperCase();
+  applySectionAccess();
 
   // Show offline warning if needed
   if(isOffline){
@@ -1846,7 +1907,7 @@ function applyDashboardBinSummary(summary){
   set('db-res', summary.reserved);
 }
 
-function parseBinIdClient_(binId){
+function parseDashboardBinId_(binId){
   const m = String(binId||'').match(/^R(\d+)-C(\d+)-(\d+)$/i);
   if(!m) return null;
   return { row:Number(m[1]), col:Number(m[2]), level:Number(m[3]) };
@@ -1857,7 +1918,7 @@ function renderBinUtilizationMap(bins){
   if(!grid) return;
   const rows={};
   (bins||[]).forEach(b=>{
-    const p=parseBinIdClient_(b.id);
+    const p=parseDashboardBinId_(b.id);
     if(!p) return;
     if(!rows[p.row]) rows[p.row]=[];
     rows[p.row].push({...b,_p:p});
@@ -1881,11 +1942,17 @@ function renderBinUtilizationMap(bins){
 // v6: Track last active section to avoid re-rendering on same tab click
 let _lastSection = '';
 function showSection(name,el){
+  const group = SECTION_GROUP_BY_VIEW[name] || 'OVERVIEW';
+  if(!canAccessSection_(group)){
+    toast('You do not have access to this section. Ask Admin to update USERS → Allowed Sections.', 'warn', 4000);
+    return false;
+  }
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('s-'+name)?.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(el) el.classList.add('active');
   _lastSection = name;
+  return true;
 }
 
 /* ════════════════════ DASHBOARD ════════════════════ */
