@@ -1,0 +1,21 @@
+# Local data and business files
+*.xlsx
+*.xls
+*.csv
+*.pdf
+*.docx
+~$*
+
+# Backups and old versions
+*Backup.*
+*backup.*
+code.gs
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
