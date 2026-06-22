@@ -1399,7 +1399,8 @@ function lsSet(k,v){try{localStorage.setItem('mwwms2_'+k,JSON.stringify(v));}cat
 //  Get it from: Apps Script → Deploy → Manage Deployments
 //  It looks like: https://script.google.com/macros/s/AKfycb.../exec
 // ══════════════════════════════════════════════════════════════
-const GAS_URL = ls('gasUrl') || '';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwOftOsHKyol0NPhQFy8waSCT5GFdaPkrqt45U8PEip8kLVn9tXJdd3HR1_ni5xbcM9/exec';
+const GAS_URL = ls('gasUrl') || DEFAULT_GAS_URL;
 
 function setGasUrl(url){
   lsSet('gasUrl', url.trim());
@@ -4809,7 +4810,7 @@ async function testGASConnection(){
   }
 }
 window.addEventListener('DOMContentLoaded',function(){
-  const saved=ls('gasUrl')||'';
+  const saved=ls('gasUrl')||GAS_URL||'';
   const input=document.getElementById('gasUrlInput');
   if(input)input.value=saved;
   if(saved){
