@@ -206,6 +206,10 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
 .prog-red{background:var(--red)}
 
 /* BIN GRID */
+.bin-map{display:flex;flex-direction:column;gap:10px}
+.bin-line{border:1px solid var(--border);border-radius:8px;background:#fff;overflow:hidden}
+.bin-line-head{display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border-bottom:1px solid var(--border);padding:6px 8px;font-size:11px;font-weight:800;color:var(--slate3)}
+.bin-line-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:5px;padding:8px}
 .bin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;padding:4px}
 .bin-cell{border-radius:6px;padding:6px 4px;text-align:center;font-size:9px;font-weight:700;font-family:'DM Mono',monospace;cursor:default;border:1px solid transparent}
 .bin-cell.bc-empty{background:var(--green-l);color:var(--green-d);border-color:#a7f3d0}
@@ -1829,6 +1833,8 @@ function _completeLogin(name, role, userId, isOffline){
 
 function applyDashboardBinSummary(summary){
   if(!summary) return;
+  const localTotal = normalizeBinMasterRows(binMaster).length;
+  if(localTotal && Number(summary.total || 0) < localTotal) return;
   const set = (id, val) => {
     const el = document.getElementById(id);
     if(el) el.innerText = Number(val || 0).toLocaleString();
@@ -1837,6 +1843,38 @@ function applyDashboardBinSummary(summary){
   set('db-empty', summary.empty);
   set('db-occ', summary.occupied);
   set('db-res', summary.reserved);
+}
+
+function parseBinIdClient_(binId){
+  const m = String(binId||'').match(/^R(\d+)-C(\d+)-(\d+)$/i);
+  if(!m) return null;
+  return { row:Number(m[1]), col:Number(m[2]), level:Number(m[3]) };
+}
+
+function renderBinUtilizationMap(bins){
+  const grid=document.getElementById('binUtilGrid');
+  if(!grid) return;
+  const rows={};
+  (bins||[]).forEach(b=>{
+    const p=parseBinIdClient_(b.id);
+    if(!p) return;
+    if(!rows[p.row]) rows[p.row]=[];
+    rows[p.row].push({...b,_p:p});
+  });
+  const rowNos=Object.keys(rows).map(Number).sort((a,b)=>a-b);
+  if(!rowNos.length){ grid.innerHTML='<div style="font-size:12px;color:var(--slate4);padding:8px">No valid rack bins found</div>'; return; }
+  grid.className='bin-map';
+  grid.innerHTML=rowNos.map(r=>{
+    const line=rows[r].sort((a,b)=>a._p.col-b._p.col||a._p.level-b._p.level);
+    const occ=line.filter(b=>b.status==='Occupied').length;
+    const res=line.filter(b=>b.status==='Reserved').length;
+    const empty=line.filter(b=>b.status==='Empty').length;
+    return '<div class="bin-line">'
+      +'<div class="bin-line-head"><span>R'+r+' Line</span><span>'+line.length+' bins · '+empty+' empty · '+occ+' occupied · '+res+' reserved</span></div>'
+      +'<div class="bin-line-grid">'
+      +line.map(b=>'<div class="bin-cell bc-'+String(b.status||'Empty').toLowerCase()+'" title="'+b.id+' — '+b.status+' ('+(b.fsn||'')+')"><span class="bin-cell-id">C'+b._p.col+'-'+String(b._p.level).padStart(3,'0')+'</span></div>').join('')
+      +'</div></div>';
+  }).join('');
 }
 
 // v6: Track last active section to avoid re-rendering on same tab click
@@ -1881,11 +1919,8 @@ function loadDashboard(){
   document.getElementById('classBreakdown').innerHTML=
     Object.entries(cg).map(([k,v])=>`<span class="status-badge sb-${k.toLowerCase()}">${k}: ${v} bins</span>`).join('');
 
-  // Bin utilization mini map
-  const grid=document.getElementById('binUtilGrid');
-  const gridBins=cleanBins.slice(0,600);
-  grid.innerHTML=gridBins.map(b=>`<div class="bin-cell bc-${b.status.toLowerCase()}" title="${b.id} — ${b.status} (${b.fsn})"><span class="bin-cell-id">${b.id.split('-').slice(1).join('-')}</span></div>`).join('')+
-    (cleanBins.length>600?`<div class="bin-cell bc-reserved" title="Use Bin Status tab for full list"><span class="bin-cell-id">+${(cleanBins.length-600).toLocaleString()} more</span></div>`:'');
+  // Bin utilization map grouped by rack line
+  renderBinUtilizationMap(cleanBins);
 
   // Inventory level cards
   const totalInv=inventory.reduce((s,r)=>s+r.qty,0);
