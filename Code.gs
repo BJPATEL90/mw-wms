@@ -212,7 +212,7 @@ function getSheetDefs_() {
   // but are no longer auto-created or managed here.
   return {
     USERS: {
-      headers: ['User ID', 'Password', 'Name', 'Role', 'Active (YES/NO)', 'Last Login'],
+      headers: ['User ID', 'Password', 'Name', 'Role', 'Active (YES/NO)', 'Last Login', 'Allowed Sections'],
       tabColor: '#0d9488'
     },
     // ── WMS App sheets ──
@@ -439,11 +439,13 @@ function login(userId, password) {
         sh.getRange(i + 1, 6).setValue(Utilities.formatDate(new Date(), tz, 'dd-MM-yyyy HH:mm:ss'));
       } catch(e) {}
 
+      const rowSections = String(data[i][6] || '').trim(); // Column G — Allowed Sections
       return {
-        success:  true,
-        name:     rowName,
-        role:     rowRole,   // ADMIN or anything else
-        userId:   rowId,
+        success:         true,
+        name:            rowName,
+        role:            rowRole,
+        userId:          rowId,
+        allowedSections: rowSections,
       };
     }
   }
