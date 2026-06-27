@@ -1668,6 +1668,7 @@ function syncWMSBinStatusToMaster_(binData) {
  * mode: 'replace' (default) — clears sheet first | 'append' — adds to existing
  */
 function saveInventoryDump(rows, mode) {
+  _invalidateCache_('binMaster'); // bin statuses change after dump upload
   try {
     if (!rows || !rows.length) return { success: false, message: 'No inventory rows received' };
     const sh = SS.getSheetByName('INVENTORY_DUMP') || SS.insertSheet('INVENTORY_DUMP');
@@ -1757,6 +1758,7 @@ function normalizeBinIdForMaster_(value) {
  * rows: [{gpNo, date, skuCode, skuName, bin, qty, reason}]
  */
 function saveGatepasses(rows) {
+  _invalidateCache_('gatepasses');
   try {
     if (!rows || !rows.length) return { success: false, message: 'No gatepass rows received' };
     const sh = SS.getSheetByName('GATEPASS') || SS.insertSheet('GATEPASS');
@@ -1983,11 +1985,9 @@ function getGatepassesFromSheet() {
  * Load all WMS data on app startup — called once after login
  */
 function loadAllWMSData() {
-  // Returns only lightweight masters for login initialization.
-  // Full bin, inventory, and gatepass dumps are large; load them from dedicated actions.
-  // globalRefresh() handles inventory sync separately after login.
+  // Returns masters for login initialization — binMaster served from cache when warm.
   try {
-    const binRows = getBinMasterFromSheet();
+    const binRows = _cachedRead_('binMaster', getBinMasterFromSheet, 6);
     const binSummary = binRows.reduce((acc, b) => {
       acc.total++;
       const st = String(b.status || '').trim().toUpperCase();
@@ -2426,37 +2426,72 @@ function clearSheetData(sheetName) {
  * Skips sheet read if data was fetched recently.
  * 100KB limit per key — silently falls back to live read if too large.
  */
+/* ── Chunked CacheService helpers (no size limit) ── */
+const _CACHE_CHUNK_ = 95000; // bytes per chunk — under GAS 100KB per-key limit
+
 function _cachedRead_(key, readFn, hours) {
-  const cache = CacheService.getScriptCache();
-  const cKey  = 'wms_' + key;
   try {
-    const hit = cache.get(cKey);
-    if (hit) return JSON.parse(hit);
+    const hit = _cacheGetChunked_('wms_' + key);
+    if (hit !== null) return hit;
   } catch(e) {}
   const data = readFn();
-  try {
-    const str = JSON.stringify(data);
-    if (str.length < 90000) cache.put(cKey, str, (hours || 6) * 3600);
-  } catch(e) {}
+  try { _cacheSetChunked_('wms_' + key, data, (hours || 6) * 3600); } catch(e) {}
   return data;
 }
 
 function _invalidateCache_(key) {
-  try { CacheService.getScriptCache().remove('wms_' + key); } catch(e) {}
+  _cacheDeleteChunked_('wms_' + key);
+}
+
+function _cacheGetChunked_(cKey) {
+  const cache = CacheService.getScriptCache();
+  const meta  = cache.get(cKey + '__n');
+  if (!meta) return null;
+  const n = parseInt(meta);
+  const keys = Array.from({length: n}, (_, i) => cKey + '__' + i);
+  const chunks = cache.getAll(keys);
+  const parts  = [];
+  for (let i = 0; i < n; i++) {
+    if (!chunks[cKey + '__' + i]) return null; // chunk expired
+    parts.push(chunks[cKey + '__' + i]);
+  }
+  return JSON.parse(parts.join(''));
+}
+
+function _cacheSetChunked_(cKey, data, ttlSec) {
+  const cache  = CacheService.getScriptCache();
+  const json   = JSON.stringify(data);
+  const n      = Math.ceil(json.length / _CACHE_CHUNK_);
+  const entries = {[cKey + '__n']: String(n)};
+  for (let i = 0; i < n; i++) {
+    entries[cKey + '__' + i] = json.slice(i * _CACHE_CHUNK_, (i + 1) * _CACHE_CHUNK_);
+  }
+  cache.putAll(entries, ttlSec);
+}
+
+function _cacheDeleteChunked_(cKey) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const meta  = cache.get(cKey + '__n');
+    const n     = meta ? parseInt(meta) : 8;
+    const keys  = [cKey + '__n'];
+    for (let i = 0; i < n; i++) keys.push(cKey + '__' + i);
+    cache.removeAll(keys);
+  } catch(e) {}
 }
 
 function refreshAllData() {
   try {
     const tz = Session.getScriptTimeZone();
 
-    // ── SKU Master (CacheService 6h) ──
+    // ── SKU Master (cache 6h — changes only on bulk upload or inline add/edit) ──
     const skuMaster = _cachedRead_('skuMaster', getSKUMasterFromSheet, 6);
 
-    // ── Bin Master: read directly so stale/polluted cache cannot inflate counts ──
-    let binMaster = getBinMasterFromSheet();
+    // ── Bin Master (cache 6h — invalidated on every write) ──
+    let binMaster = _cachedRead_('binMaster', getBinMasterFromSheet, 6);
 
-    // ── Gatepasses ──
-    const gatepasses = getGatepassesFromSheet();
+    // ── Gatepasses (cache 2h) ──
+    const gatepasses = _cachedRead_('gatepasses', getGatepassesFromSheet, 2);
 
     // ── Inventory Dump (all rows for cycle count + current inventory) ──
     const invSh = SS.getSheetByName('INVENTORY_DUMP');
@@ -3875,6 +3910,7 @@ function updateBinStatus(binId, status, updatedBy) {
 }
 
 function addOrUpdateSKURow(row) {
+  _invalidateCache_('skuMaster');
   try {
     const code = String(row['SKU Code'] || row.code || '').trim();
     if (!code) return { success: false, message: 'SKU Code required' };
@@ -3911,6 +3947,7 @@ function addOrUpdateSKURow(row) {
 }
 
 function addOrUpdateBinRow(row) {
+  _invalidateCache_('binMaster');
   try {
     const binId = normalizeBinIdForMaster_(row['Bin ID'] || row.id || row.binId);
     if (!binId) return { success: false, message: 'Bin ID required' };
@@ -3950,6 +3987,7 @@ function addOrUpdateBinRow(row) {
 
 function _setBinStatuses_(sh, binIds, status, updatedBy) {
   if (!binIds || !binIds.length) return;
+  _invalidateCache_('binMaster'); // invalidate before write so next read is fresh
   const binSet = new Set(binIds.map(b => normalizeBinIdForMaster_(b)).filter(Boolean));
   const data = sh.getDataRange().getDisplayValues();
   const now = new Date().toISOString();
