@@ -122,6 +122,22 @@ html,body{height:100%;overflow:hidden;background:var(--surface);font-family:'DM 
 .btn-outline{width:100%;padding:12px;background:#fff;color:var(--teal);border:1.5px solid var(--teal);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 
 /* ── PUTAWAY ── */
+/* ── Putaway GRN summary cards (Level 1) ── */
+.grn-card{border:1.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;background:#fff;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.grn-card:active{border-color:var(--teal);box-shadow:0 4px 16px rgba(13,148,136,.15)}
+.grn-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.grn-card-id{font-family:monospace;font-size:13px;font-weight:800;color:var(--teal-d);background:var(--teal-l);padding:3px 10px;border-radius:6px;word-break:break-all}
+.grn-card-arrow{font-size:20px;color:var(--teal);flex-shrink:0;margin-left:8px}
+.grn-card-meta{font-size:12px;color:var(--slate4);margin-bottom:10px}
+.grn-progress-track{background:#e2e8f0;border-radius:999px;height:6px;overflow:hidden;margin-bottom:6px}
+.grn-progress-fill{height:100%;background:var(--green);border-radius:999px;transition:width .3s}
+.grn-progress-label{display:flex;justify-content:space-between;font-size:11px;font-weight:600}
+.grn-progress-done{color:var(--green-d)}
+.grn-progress-total{color:var(--slate4)}
+/* ── Back button (Level 2 header) ── */
+.putaway-detail-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.putaway-back-btn{background:none;border:1.5px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:5px;flex-shrink:0}
+.putaway-detail-grn{font-family:monospace;font-size:12px;font-weight:700;color:var(--teal-d);background:var(--teal-l);padding:3px 10px;border-radius:6px;min-width:0;word-break:break-all}
 .putaway-card{border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;background:#fff}
 .putaway-card.warn{border-color:#fca5a5;background:#fff8f8}
 .putaway-card.done{border-color:var(--green);background:var(--green-l);opacity:.7}
@@ -541,7 +557,8 @@ var userName     = '';
 var mSearchMode  = 'bin';
 var mCCLines     = [];
 var mCCBin       = '';
-var mDoneBins    = {};   // binId → true
+var mDoneBins        = {};   // binId → true
+var mActivePutawayGRN = null; // which GRN is open in detail view (null = list view)
 var mExpiryFilter = 'all';
 var mFSNShelfMin = 0;
 var mFSNShelfMax = 100;
@@ -968,6 +985,7 @@ function mLoadPutawayFromSheet(){
     function(e){ hideLoad(); mToast('Could not load plan: '+e,'error',4000); }
   );
 }
+/* ── Level 1: GRN summary list ── */
 function mRenderPutaway(){
   var el=document.getElementById('mPutawayContent');
   if(!putawayPlan||!putawayPlan.length){
@@ -975,24 +993,89 @@ function mRenderPutaway(){
     mLoadPutawayFromSheet();
     return;
   }
-  var warns=putawayPlan.filter(function(r){return r.warning;}).length;
-  var done=Object.keys(mDoneBins).length;
-  var html='';
+  if(mActivePutawayGRN){ mRenderPutawayDetail(); return; }
+  mRenderPutawayGRNList();
+}
+
+function mRenderPutawayGRNList(){
+  var el=document.getElementById('mPutawayContent');
+  // Group rows by planId (GRN)
+  var grnMap={};
+  putawayPlan.forEach(function(r){
+    var pid=r._planId||r.grnNo||'GRN';
+    if(!grnMap[pid]) grnMap[pid]={planId:pid,rows:[]};
+    grnMap[pid].rows.push(r);
+  });
+  var grns=Object.values(grnMap);
+  var totalDone=putawayPlan.filter(function(r){return r._confirmed;}).length;
+  var html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    +'<span class="section-title" style="margin:0">'+grns.length+' GRN'+(grns.length>1?'s':'')+' · '+totalDone+'/'+putawayPlan.length+' done</span>'
+    +'<button class="print-btn" onclick="mLoadPutawayFromSheet()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> Refresh</button>'
+    +'</div>';
+  grns.forEach(function(g){
+    var rows=g.rows;
+    var total=rows.length;
+    var done=rows.filter(function(r){return r._confirmed;}).length;
+    var warns=rows.filter(function(r){return r.warning;}).length;
+    var skuSet={};
+    rows.forEach(function(r){skuSet[r.sku]=r.skuName;});
+    var skuList=Object.keys(skuSet);
+    var pct=total>0?Math.round(done/total*100):0;
+    var statusColor=done===total?'var(--green-d)':warns?'var(--red)':'var(--teal-d)';
+    html+='<div class="grn-card" onclick="mOpenGRN(\''+g.planId+'\')">'
+      +'<div class="grn-card-header">'
+        +'<div class="grn-card-id">'+g.planId+'</div>'
+        +'<div class="grn-card-arrow">›</div>'
+      +'</div>'
+      +'<div class="grn-card-meta">'
+        +skuList.map(function(code){return '<span style="display:inline-block;background:var(--teal-l);color:var(--teal-d);font-family:monospace;font-size:11px;padding:1px 7px;border-radius:4px;margin:0 4px 4px 0">'+code+'</span>';}).join('')
+        +(skuList.length>0?'<div style="font-size:12px;color:var(--slate4);margin-top:4px">'+(skuSet[skuList[0]]||'')+(skuList.length>1?' + '+(skuList.length-1)+' more':'')+'</div>':'')
+      +'</div>'
+      +(warns?'<div style="font-size:11px;color:var(--red);margin-bottom:8px;font-weight:600">⚠ '+warns+' pallet(s) missing bin</div>':'')
+      +'<div class="grn-progress-track"><div class="grn-progress-fill" style="width:'+pct+'%'+(done===total?'':';background:var(--teal)')+'"></div></div>'
+      +'<div class="grn-progress-label">'
+        +'<span class="grn-progress-done" style="color:'+statusColor+'">'+done+' done</span>'
+        +'<span class="grn-progress-total">'+total+' pallets total</span>'
+      +'</div>'
+      +'</div>';
+  });
+  el.innerHTML=html;
+}
+
+function mOpenGRN(planId){
+  mActivePutawayGRN=planId;
+  mRenderPutawayDetail();
+}
+
+/* ── Level 2: pallet-by-pallet detail for one GRN ── */
+function mRenderPutawayDetail(){
+  var el=document.getElementById('mPutawayContent');
+  var planId=mActivePutawayGRN;
+  var rows=putawayPlan.filter(function(r){return (r._planId||r.grnNo||'GRN')===planId;});
+  if(!rows.length){ mActivePutawayGRN=null; mRenderPutawayGRNList(); return; }
+
+  var done=rows.filter(function(r){return r._confirmed;}).length;
+  var warns=rows.filter(function(r){return r.warning;}).length;
+
+  var html='<div class="putaway-detail-header">'
+    +'<button class="putaway-back-btn" onclick="mActivePutawayGRN=null;mRenderPutawayGRNList()">‹ Back</button>'
+    +'<div class="putaway-detail-grn">'+planId+'</div>'
+    +'<div style="margin-left:auto;font-size:12px;font-weight:700;color:var(--slate4)">'+done+'/'+rows.length+' done</div>'
+    +'</div>';
+
   if(warns){
     html+='<div class="notice warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>'+warns+' pallet(s) have no bin — tap ✎ to assign</span></div>';
   }
-  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
-  html+='<span class="section-title" style="margin:0">'+putawayPlan.length+' pallets | '+done+' done</span>';
-  html+='<button class="print-btn" onclick="window.print()"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>';
-  html+='</div>';
 
   var lastKey='';
-  putawayPlan.forEach(function(r,i){
+  rows.forEach(function(r){
+    // find the real index in putawayPlan (needed for mMarkDone / mChangeBin)
+    var i=putawayPlan.indexOf(r);
     var key=r.sku+'|'+(r.batch||'');
     if(key!==lastKey){
       lastKey=key;
-      var total=putawayPlan.filter(function(x){return x.sku===r.sku&&x.batch===r.batch;}).reduce(function(s,x){return s+(x.allocQty||0);},0);
-      html+='<div style="font-size:11px;font-weight:700;color:var(--slate4);margin:'+(i>0?'16px':0)+' 0 8px;border-bottom:1px solid var(--border);padding-bottom:6px">'
+      var total=rows.filter(function(x){return x.sku===r.sku&&x.batch===r.batch;}).reduce(function(s,x){return s+(x.allocQty||0);},0);
+      html+='<div style="font-size:11px;font-weight:700;color:var(--slate4);margin:'+(lastKey!==key?'16px':0)+' 0 8px;border-bottom:1px solid var(--border);padding-bottom:6px">'
         +'<span style="font-family:monospace;background:var(--teal-l);color:var(--teal-d);padding:2px 8px;border-radius:4px;font-size:12px">'+r.sku+'</span>'
         +'&nbsp;'+(r.skuName||'')+'&nbsp;·&nbsp;Batch: '+(r.batch||'—')+'&nbsp;·&nbsp;Total: '+total.toLocaleString()+' units'
         +'</div>';
@@ -1004,7 +1087,7 @@ function mRenderPutaway(){
         +'<span class="putaway-qty-chip">'+(r.allocQty||0)+' units</span>'
       +'</div>'
       +'<div class="putaway-sku-info" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
-        +'<span class="putaway-chip chip-class">'+(r.binBrand||r.cls||'—')+'</span>'
+        +'<span class="putaway-chip chip-class">'+(r.binBrand||'—')+'</span>'
         +'<span class="putaway-chip chip-fsn">FSN-'+(r.cls||'—')+'</span>'
         +(r.isOverflow?'<span class="putaway-chip chip-overflow">⚠ OVERFLOW</span>':'')
         +(r.isFullPallet?'<span class="putaway-chip" style="background:var(--green-l);color:var(--green-d)">✓ Full Pallet</span>':'<span class="putaway-chip" style="background:var(--amber-l);color:var(--amber-d)">Partial</span>')
@@ -1012,11 +1095,11 @@ function mRenderPutaway(){
       +'<div class="putaway-bin-row">'
         +'<span class="putaway-bin-label">Bin</span>'
         +'<span class="putaway-bin-val'+(r.warning?' warn':'')+'">'+( r.warning?'⚠ NO BIN':r.binId)+'</span>'
-        +'<button class="putaway-change-btn" onclick="mChangeBin('+i+')">✎ Change</button>'
+        +(r.warning?'':'<button class="putaway-change-btn" onclick="mChangeBin('+i+')">✎ Change</button>')
       +'</div>'
       +(r.allocBoxes?'<div style="font-size:12px;color:var(--slate4);margin-bottom:8px">'+r.allocBoxes+' boxes on this pallet</div>':'')
       +'<button class="putaway-done-btn'+(isDone?' undone':'')+'" onclick="mMarkDone('+i+',this)">'
-        +(isDone?'Undo':'✓ Done — Pallet Placed')
+        +(isDone?'↩ Undo':'✓ Done — Pallet Placed')
       +'</button>'
       +'</div>';
   });
@@ -1035,12 +1118,14 @@ function mMarkDone(idx,btn){
       if(!r||!r.success){mToast('Confirm failed: '+(r&&r.message||'error'),'error',4000);return;}
       putawayPlan[idx]._confirmed=true;
       lsSet('putaway',putawayPlan);
-      mRenderPutaway();
       if(r.allConfirmed){
         mToast('✅ All pallets confirmed! Putaway complete.','success',5000);
         putawayPlan=[];lsSet('putaway',[]);
+        mActivePutawayGRN=null;
+        mRenderPutaway();
       } else {
         mToast('✓ Bin '+row.binId+' done','success',2000);
+        mRenderPutawayDetail(); // stay inside the GRN detail view
       }
     },
     function(e){hideLoad();mToast('Error: '+e,'error',4000);}
