@@ -363,9 +363,29 @@ body.force-phone-scale .inv-meta-val,body.force-phone-scale .stock-badge{font-si
 body.force-phone-scale .tab{font-size:9px;gap:2px;padding-top:3px}
 body.force-phone-scale .tab svg{width:20px;height:20px}
 body.force-phone-scale .bin-suggest-panel{max-height:220px}
+/* ── Camera scan modal ── */
+#scanModal{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.85);display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:40px}
+#scanModal.open{display:flex}
+#scanModal .scan-box{width:90%;max-width:360px;background:#000;border-radius:16px;overflow:hidden;position:relative}
+#scanModal .scan-close{position:absolute;top:10px;right:12px;z-index:2;background:rgba(0,0,0,.55);border:none;color:#fff;font-size:22px;border-radius:50%;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#scanModal .scan-label{color:#fff;font-size:14px;font-weight:600;text-align:center;margin:14px 0 8px}
+#scanModal .scan-hint{color:#94a3b8;font-size:12px;text-align:center;margin-bottom:16px;padding:0 20px}
+#reader{width:100%}
+.scan-cam-btn{background:none;border:1.5px solid var(--teal);border-radius:8px;padding:7px 10px;color:var(--teal);cursor:pointer;display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;flex-shrink:0}
+.scan-cam-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
 </style>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
+<!-- ── Camera scan modal ── -->
+<div id="scanModal">
+  <div class="scan-label">Scan Bin Barcode</div>
+  <div class="scan-hint">Hold Code 128 barcode steady in the frame</div>
+  <div class="scan-box">
+    <button class="scan-close" onclick="mStopScan()">✕</button>
+    <div id="reader"></div>
+  </div>
+</div>
 
 <!-- ══ LOGIN ══ -->
 <div id="loginScreen">
@@ -435,10 +455,14 @@ body.force-phone-scale .bin-suggest-panel{max-height:220px}
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span>Scan or type bin ID to start count. System shows existing stock.</span>
       </div>
-      <div class="search-bar">
-        <input class="bin-search-large" id="mCCBinInput" placeholder="BIN ID / SCAN" 
+      <div class="search-bar" style="align-items:center">
+        <input class="bin-search-large" id="mCCBinInput" placeholder="BIN ID / SCAN"
           autocorrect="off" autocapitalize="characters" spellcheck="false"
           onkeydown="if(event.key==='Enter')mStartCC()">
+        <button class="scan-cam-btn" onclick="mStartScan('cc')" title="Scan barcode with camera">
+          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Scan
+        </button>
       </div>
       <button class="btn-submit" onclick="mStartCC()" style="margin-bottom:14px">Load Bin Stock</button>
       <div id="mCCContent"></div>
@@ -1567,6 +1591,58 @@ function mApplyPhoneScaleFix(){
   document.documentElement.style.setProperty('--phone-css-height', cssH+'px');
   document.body.classList.add('force-phone-scale');
 }
+/* ════════════════════ BARCODE SCANNER ════════════════════ */
+var _html5Qr = null;
+var _scanTarget = 'cc'; // 'cc' = cycle count, 'search' = bin search
+
+function mStartScan(target){
+  _scanTarget = target || 'cc';
+  if(typeof Html5Qrcode === 'undefined'){
+    mToast('Scanner library not loaded — check internet connection','error',4000);
+    return;
+  }
+  document.getElementById('scanModal').classList.add('open');
+  if(_html5Qr){ _html5Qr.clear(); _html5Qr = null; }
+  _html5Qr = new Html5Qrcode('reader');
+  _html5Qr.start(
+    {facingMode:'environment'},
+    {fps:10, qrbox:{width:260, height:120},
+     formatsToSupport:[
+       Html5QrcodeSupportedFormats.CODE_128,
+       Html5QrcodeSupportedFormats.CODE_39,
+       Html5QrcodeSupportedFormats.EAN_13,
+       Html5QrcodeSupportedFormats.QR_CODE
+     ]
+    },
+    function(decodedText){
+      mStopScan();
+      var val = String(decodedText||'').trim().toUpperCase();
+      if(_scanTarget==='cc'){
+        document.getElementById('mCCBinInput').value = val;
+        mToast('Scanned: '+val,'success',2000);
+        setTimeout(mStartCC, 300);
+      } else if(_scanTarget==='search'){
+        document.getElementById('mSearchInput').value = val;
+        mToast('Scanned: '+val,'success',2000);
+        setTimeout(mSearch, 300);
+      }
+    },
+    function(){ /* scan frame error — ignore */ }
+  ).catch(function(e){
+    mStopScan();
+    mToast('Camera error: '+e,'error',4000);
+  });
+}
+
+function mStopScan(){
+  document.getElementById('scanModal').classList.remove('open');
+  if(_html5Qr){
+    _html5Qr.stop().catch(function(){});
+    _html5Qr.clear();
+    _html5Qr = null;
+  }
+}
+
 (function mApplyMobileFixes(){
   mApplyPhoneScaleFix();
   window.addEventListener('resize',mApplyPhoneScaleFix);

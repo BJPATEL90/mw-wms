@@ -2940,8 +2940,10 @@ function showPutaway(){
     return groupHeader+`<div class="putaway-row" style="${r.warning?'border-color:#fecaca;background:#fff8f8':''}">
       <div class="putaway-bin" style="display:flex;flex-direction:column;align-items:center;gap:6px">
         <span style="${r.warning?'color:var(--red);font-size:13px;font-weight:700':''}">${r.warning?'⚠ NO BIN':r.binId}</span>
-        <button onclick="changePalletBin(${i})" style="font-size:9px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;color:var(--slate3)" title="Change bin for this pallet">✎ Change</button>
-        ${!r.warning?`<button onclick="confirmPutawayRow_(${i})" style="font-size:9px;padding:2px 7px;border:1px solid #059669;border-radius:4px;background:${r._confirmed?'#d1fae5':'var(--surface)'};cursor:pointer;color:${r._confirmed?'#065f46':'#059669'}" title="Mark this pallet as placed">${r._confirmed?'✅ Done':'✓ Confirm'}</button>`:''}
+        <div style="display:flex;gap:6px;width:100%;justify-content:space-between;margin-top:4px">
+          <button onclick="changePalletBin(${i})" style="flex:1;font-size:11px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--slate3);font-weight:600" title="Change bin for this pallet">✎ Change</button>
+          ${!r.warning?`<button onclick="confirmPutawayRow_(${i})" style="flex:1;font-size:11px;padding:5px 8px;border:1.5px solid #059669;border-radius:6px;background:${r._confirmed?'#d1fae5':'var(--surface)'};cursor:pointer;color:${r._confirmed?'#065f46':'#059669'};font-weight:600" title="Mark this pallet as placed">${r._confirmed?'✅ Done':'✓ Confirm'}</button>`:'<div style="flex:1"></div>'}
+        </div>
       </div>
       <div class="putaway-info">
         <div class="pi-sku">
@@ -5929,8 +5931,15 @@ function initExpiryWatch() {
   function parseExp(s) {
     if (!s) return null;
     var str = String(s).trim();
-    var m = str.match(/^(\d\d)-(\d\d)-(\d{4})$/);
+    // dd-mm-yyyy
+    var m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
     if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+    // dd/mm/yyyy  ← Uniware common format
+    m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+    // yyyy-mm-dd (ISO)
+    m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m) return new Date(+m[1], +m[2]-1, +m[3]);
     var d = new Date(str); return isNaN(d.getTime()) ? null : d;
   }
   function brandOf(code) {
@@ -5941,21 +5950,19 @@ function initExpiryWatch() {
     return 'Other';
   }
 
-  // Aggregate by bin+sku+batch (GOOD stock only)
+  // Aggregate by bin+sku+batch — ALL stock types included so DAMAGE/expired stock is visible
   var agg = {};
   (inventory || []).forEach(function(r) {
     if (!r.bin || !r.skuCode || r.qty <= 0) return;
-    var st = String(r.stockType||'').toUpperCase();
-    if (st === 'DAMAGE' || st === 'BAD' || st === 'BAD_INVENTORY' || st === 'BLOCKED') return;
     if (!r.expDate) return;
     var exp = parseExp(r.expDate); if (!exp) return;
     var days = Math.round((exp - today) / (1000*60*60*24));
-    if (days > 90) return; // Only expired or near-expiry
+    if (days > 90) return; // show expired (days<0) and within-90-day near-expiry
     var key = r.bin + '|||' + r.skuCode + '|||' + (r.batch||'');
     if (!agg[key]) agg[key] = {
       skuCode:r.skuCode, skuName:r.skuName||'', batch:r.batch||'',
       expDate:r.expDate, bin:r.bin, days:days,
-      brand:brandOf(r.skuCode), qty:0
+      brand:brandOf(r.skuCode), stockType:r.stockType||'GOOD', qty:0
     };
     agg[key].qty += (r.qty||0);
   });
@@ -6019,7 +6026,7 @@ function renderExpiryWatch() {
       + '<td style="text-align:center">' + daysText + '</td>'
       + '<td><span class="bin-badge" style="font-size:10px">' + r.bin + '</span></td>'
       + '<td style="text-align:right;font-weight:700">' + r.qty.toLocaleString() + '</td>'
-      + '<td style="font-size:10px;color:var(--slate4)">Move to quarantine</td>'
+      + '<td><span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:' + (r.stockType==='GOOD'||r.stockType==='UNRESTRICTED'?'#dcfce7':'#fee2e2') + ';color:' + (r.stockType==='GOOD'||r.stockType==='UNRESTRICTED'?'#166534':'#991b1b') + '">' + (r.stockType||'GOOD') + '</span></td>'
       + '</tr>';
   }).join('');
 }
