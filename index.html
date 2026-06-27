@@ -248,9 +248,25 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
 .pager-btn{padding:5px 14px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--slate3);font-size:12px;font-weight:600;cursor:pointer}
 .pager-btn:disabled{opacity:.35;cursor:not-allowed}
 .pager-btn:not(:disabled):hover{background:var(--teal);color:#fff;border-color:var(--teal)}
+/* ── Processing Overlay ── */
+#procOverlay{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9000;display:none;align-items:center;justify-content:center}
+#procOverlay.visible{display:flex}
+.proc-box{background:#fff;border-radius:16px;padding:32px 40px;text-align:center;max-width:320px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.proc-spinner{width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#0d9488;border-radius:50%;animation:proc-spin .8s linear infinite;margin:0 auto 16px}
+@keyframes proc-spin{to{transform:rotate(360deg)}}
+#procMsg{font-size:15px;font-weight:600;color:#0f172a;margin-bottom:6px}
+#procSubMsg{font-size:12px;color:#64748b;min-height:16px}
 </style>
 </head>
 <body>
+<!-- ══ Processing Overlay ══ -->
+<div id="procOverlay">
+  <div class="proc-box">
+    <div class="proc-spinner"></div>
+    <div id="procMsg">Processing…</div>
+    <div id="procSubMsg"></div>
+  </div>
+</div>
 
 <!-- LOGIN -->
 <div id="loginOverlay">
@@ -312,7 +328,7 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
         <div class="nav-item" onclick="showSection('grnList',this);renderGRNList()">
           <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>GRN History
         </div>
-        <div class="nav-item" onclick="showSection('putaway',this);showPutaway()">
+        <div class="nav-item" onclick="showSection('putaway',this);loadPutawayFromSheet()">
           <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>Putaway Plan
         </div>
       </div>
@@ -477,7 +493,7 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
         <div class="card" id="grnUploadCard" style="display:none">
           <div class="card-header">
             <div class="card-title"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Upload GRN Excel</div>
-            <button class="btn btn-ghost btn-sm" onclick="downloadGRNTemplate()">⬇ Template</button>
+            <button class="btn btn-ghost btn-sm" onclick="ensureXLSX(downloadGRNTemplate)">⬇ Template</button>
           </div>
           <div class="card-body">
             <div class="notice info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Expected columns: <b>SKU Code, Batch, Qty, Box/Pallet, Case Pack, Classification</b> (SKU Name auto-filled from master)</div>
@@ -591,6 +607,7 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
               <button class="btn btn-danger btn-sm" onclick="cancelGRNAndReleaseBins()" title="Cancel GRN — releases all Reserved bins back to Empty">✕ Cancel GRN</button>
               <button class="btn btn-ghost btn-sm" onclick="printPutawayPlan()">🖨️ Print Plan</button>
               <button class="btn btn-ghost btn-sm" onclick="printPalletLabels()">🏷️ Labels</button>
+              <button class="btn btn-success btn-sm" onclick="confirmAllPutaway_()" title="Mark all pallets as placed — bins become Occupied">✅ Confirm All Done</button>
             </div>
           </div>
           <div class="card-body">
@@ -608,8 +625,8 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
             <div class="card-actions">
               <button class="btn btn-flush btn-sm admin-only" onclick="flushData('INVENTORY_DUMP','dump')" title="Delete all data rows from Inventory Dump sheet">🗑 Flush</button>
               <button class="btn btn-ghost btn-sm" onclick="refreshTab('dump')">↻ Refresh</button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadDumpTemplate()">⬇ Template</button>
-              <button class="btn btn-indigo btn-sm" onclick="exportDumpXLSX()">Export</button>
+              <button class="btn btn-ghost btn-sm" onclick="ensureXLSX(downloadDumpTemplate)">⬇ Template</button>
+              <button class="btn btn-indigo btn-sm" onclick="ensureXLSX(exportDumpXLSX)">Export</button>
             </div>
           </div>
           <div class="card-body">
@@ -667,10 +684,10 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
               <button class="btn btn-flush btn-sm admin-only" onclick="flushData('BIN_MASTER_WMS','bins')" title="Delete all data rows from Bin Master sheet">🗑 Flush</button>
               <button class="btn btn-ghost btn-sm" onclick="refreshTab('bins')">↻ Refresh</button>
               <button class="btn btn-ghost btn-sm" onclick="openAddBinModal()">+ Add Bin</button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadBinTemplate()">⬇ Template</button>
+              <button class="btn btn-ghost btn-sm" onclick="ensureXLSX(downloadBinTemplate)">⬇ Template</button>
               <button class="btn btn-warn btn-sm" onclick="document.getElementById('binUploadFile').click()">⬆ Bulk Upload</button>
               <input type="file" id="binUploadFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="parseBinUpload(event)">
-              <button class="btn btn-indigo btn-sm" onclick="exportBinXLSX()">Export</button>
+              <button class="btn btn-indigo btn-sm" onclick="ensureXLSX(exportBinXLSX)">Export</button>
             </div>
           </div>
           <div class="card-body" style="padding-bottom:0">
@@ -696,10 +713,10 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
               <button class="btn btn-flush btn-sm admin-only" onclick="flushData('SKU_MASTER','skumaster')" title="Delete all data rows from SKU Master sheet">🗑 Flush</button>
               <button class="btn btn-ghost btn-sm" onclick="refreshTab('skumaster')">↻ Refresh</button>
               <button class="btn btn-ghost btn-sm" onclick="openAddSKUModal()">+ Add SKU</button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadSKUTemplate()">⬇ Template</button>
+              <button class="btn btn-ghost btn-sm" onclick="ensureXLSX(downloadSKUTemplate)">⬇ Template</button>
               <button class="btn btn-warn btn-sm" onclick="document.getElementById('skuUploadFile').click()">⬆ Bulk Upload</button>
               <input type="file" id="skuUploadFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="parseSKUUpload(event)">
-              <button class="btn btn-indigo btn-sm" onclick="exportSKUXLSX()">Export</button>
+              <button class="btn btn-indigo btn-sm" onclick="ensureXLSX(exportSKUXLSX)">Export</button>
             </div>
           </div>
           <div style="padding:8px 18px 0" id="skuUploadResult" style="display:none"></div>
@@ -728,8 +745,8 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
                 <option value="EXCESS">Excess Only</option>
               </select>
               <button class="btn btn-ghost btn-sm" onclick="runDiffFromCCLog()" title="Compare CC Log physical counts vs current inventory — no upload needed">⚡ From CC Log</button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadDiffTemplate()">⬇ Template</button>
-              <button class="btn btn-indigo btn-sm" onclick="exportDiffXLSX()">Export XLSX</button>
+              <button class="btn btn-ghost btn-sm" onclick="ensureXLSX(downloadDiffTemplate)">⬇ Template</button>
+              <button class="btn btn-indigo btn-sm" onclick="ensureXLSX(exportDiffXLSX)">Export XLSX</button>
             </div>
           </div>
           <div class="card-body">
@@ -772,9 +789,9 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
             <div class="card-actions">
               <button class="btn btn-flush btn-sm admin-only" onclick="flushData('GATEPASS','gatepass')" title="Delete all rows from Gatepass sheet (keeps header)">🗑 Flush Sheet</button>
               <button class="btn btn-ghost btn-sm" onclick="refreshTab('gatepass')">↻ Refresh</button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadGatepassTemplate()">⬇ Template</button>
+              <button class="btn btn-ghost btn-sm" onclick="ensureXLSX(downloadGatepassTemplate)">⬇ Template</button>
               <button class="btn btn-danger btn-sm" onclick="clearGatepasses()">✕ Clear Local</button>
-              <button class="btn btn-indigo btn-sm" onclick="exportGatepassXLSX()">Export</button>
+              <button class="btn btn-indigo btn-sm" onclick="ensureXLSX(exportGatepassXLSX)">Export</button>
             </div>
           </div>
           <div class="card-body">
@@ -885,8 +902,8 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
                 <button class="btn btn-flush btn-sm admin-only" onclick="flushData('CYCLE_COUNT_LOG','cyclecount')" title="Delete all rows from Cycle Count Log sheet">🗑 Flush Log</button>
                 <button class="btn btn-ghost btn-sm" onclick="refreshTab('cyclecount')">↻ Refresh</button>
                 <button class="btn btn-danger btn-sm admin-only" onclick="clearCCSessionFull()" title="Clears local view AND deletes from Google Sheet. Admin only.">🗑 Clear All</button>
-                <button class="btn btn-ghost btn-sm" onclick="downloadCCTemplate()">⬇ Template</button>
-                <button class="btn btn-ghost btn-sm" onclick="exportCCLogXLSX()">Export Log</button>
+                <button class="btn btn-ghost btn-sm" onclick="ensureXLSX(downloadCCTemplate)">⬇ Template</button>
+                <button class="btn btn-ghost btn-sm" onclick="ensureXLSX(exportCCLogXLSX)">Export Log</button>
               </div>
             </div>
             <div class="card-body">
@@ -1018,7 +1035,7 @@ tbody td{padding:8px 12px;color:var(--slate);vertical-align:middle}
               <input id="adjSearch" placeholder="Search SKU / Bin / Batch…" oninput="renderAdjLog()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;width:200px">
               <button class="btn btn-flush btn-sm admin-only" onclick="flushData('ADJUSTMENT_LOG','adjustment')" title="Delete all rows from Adjustment Log sheet (keeps header)">🗑 Flush Sheet</button>
               <button class="btn btn-ghost btn-sm" onclick="refreshTab('adjustment')">↻ Refresh</button>
-              <button class="btn btn-ghost btn-sm" onclick="exportAdjLogXLSX()">⬇ Export</button>
+              <button class="btn btn-ghost btn-sm" onclick="ensureXLSX(exportAdjLogXLSX)">⬇ Export</button>
               <button class="btn btn-indigo btn-sm" onclick="syncAdjLogToSheet()">☁ Sync to Sheet</button>
               <button class="btn btn-danger btn-sm admin-only" onclick="clearAdjLogFull()" title="Clears local view AND deletes from Google Sheet. Admin only.">🗑 Clear All</button>
             </div>
@@ -1448,6 +1465,15 @@ async function callSheet(action, payload, onSuccess, onError) {
     else if (action === 'forceReimportLatest')  runner.forceReimportLatest();
 
     else if (action === 'getOverflowOptions')   runner.getOverflowOptions();
+    else if (action === 'savePutawayPlan')      runner.savePutawayPlan(payload.rows, payload.grnNo, payload.createdBy);
+    else if (action === 'loadActivePutawayPlan') runner.loadActivePutawayPlan();
+    else if (action === 'confirmPutawayRow')    runner.confirmPutawayRow(payload.planId, payload.lineNo, payload.binId, payload.confirmedBy);
+    else if (action === 'swapPutawayBin')       runner.swapPutawayBin(payload.planId, payload.lineNo, payload.oldBinId, payload.newBinId, payload.updatedBy);
+    else if (action === 'cancelPutawayPlan')    runner.cancelPutawayPlan(payload.planId, payload.releasedBy);
+    else if (action === 'confirmAllPutaway')    runner.confirmAllPutaway(payload.planId, payload.confirmedBy);
+    else if (action === 'updateBinStatus')      runner.updateBinStatus(payload.binId, payload.status, payload.updatedBy);
+    else if (action === 'addOrUpdateSKURow')    runner.addOrUpdateSKURow(payload);
+    else if (action === 'addOrUpdateBinRow')    runner.addOrUpdateBinRow(payload);
     else if (action === 'ping')                 runner.ping ? runner.ping() : onSuccess({success:true});
     else if (action === 'syncGatepasses')       runner.syncGatepasses();
     else if (action === 'forceReimportGatepass') runner.forceReimportGatepass();
@@ -2224,6 +2250,7 @@ function cancelGRNAndReleaseBins(){
     const bm = binMaster.find(b => b.id === p.binId);
     if(bm && bm.status === 'Reserved') bm.status = 'Empty';
   });
+  const _cancelPlanId = currentGRN ? currentGRN.grnNo : '';
 
   // Clear state
   putawayPlan = [];
@@ -2234,6 +2261,11 @@ function cancelGRNAndReleaseBins(){
   renderGRNTable();
   loadDashboard();
   toast('GRN cancelled — Reserved bins released back to Empty','success',3000);
+
+  // Cancel plan on sheet
+  if(_cancelPlanId){
+    callSheet('cancelPutawayPlan',{planId:_cancelPlanId,releasedBy:userName},function(){},function(){});
+  }
 }
 
 /** Change bin for a specific pallet in the putaway plan */
@@ -2318,7 +2350,8 @@ function applyBinChange(palletIdx){
   if(!bm||bm.status!=='Empty'){
     if(msgEl) msgEl.innerHTML='<span style="color:var(--red)">Bin no longer available</span>'; return;
   }
-  const oldBm = binMaster.find(b=>b.id===row.binId);
+  const oldBinId = row.binId;
+  const oldBm = binMaster.find(b=>b.id===oldBinId);
   if(oldBm&&oldBm.status==='Reserved') oldBm.status='Empty';
   bm.status='Reserved';
   putawayPlan[palletIdx].binId    = newBinId;
@@ -2326,6 +2359,15 @@ function applyBinChange(palletIdx){
   putawayPlan[palletIdx].binFsn   = bm.fsn||'';
   putawayPlan[palletIdx].warning  = false;
   putawayPlan[palletIdx].warnReason='';
+  // Sync bin swap to sheet
+  const _planIdForSwap = currentGRN ? currentGRN.grnNo : '';
+  if(_planIdForSwap){
+    showProcessing('Updating bin reservation…');
+    callSheet('swapPutawayBin',{planId:_planIdForSwap,lineNo:putawayPlan[palletIdx].lineNo,oldBinId:oldBinId,newBinId:newBinId,updatedBy:userName},
+      function(r){ hideProcessing(); if(!r||!r.success) toast('Bin swap sync: '+(r&&r.message||'error'),'warn',3000); },
+      function(e){ hideProcessing(); toast('Bin swap error: '+e,'warn',3000); }
+    );
+  }
   const m=document.getElementById('changeBinModal'); if(m) m.remove();
   saveAll(); showPutaway();
   toast('Pallet #'+(row.palletNo||1)+' → '+newBinId,'success',3000);
@@ -2471,8 +2513,9 @@ function saveGRN(){
   showResult('grnResult','GRN #'+no+' saved. Now click "Generate Putaway" to allocate bins.','success');
   loadDashboard();
   // Sync to Google Sheet
+  showProcessing('Saving GRN to Google Sheet…');
   callSheet('saveGRNToSheet', entry,
-    r=>{ if(r&&r.success) showResult('grnResult','GRN #'+no+' saved and synced to Google Sheet.','success'); },
+    r=>{ hideProcessing(); if(r&&r.success) showResult('grnResult','GRN #'+no+' saved and synced to Google Sheet.','success'); },
     ()=>{}
   );
 }
@@ -2653,6 +2696,17 @@ function _runPutawayAllocation(overflowRowOptions){
 
   putawayPlan = plan; saveAll();
   showPutaway();
+  // Save plan to Google Sheet (source of truth)
+  const _planGrnNo = currentGRN ? currentGRN.grnNo : ('GRN-'+Date.now());
+  showProcessing('Saving putaway plan to Google Sheet…');
+  callSheet('savePutawayPlan', { rows: plan, grnNo: _planGrnNo, createdBy: userName },
+    function(r){
+      hideProcessing();
+      if(r && r.success){ toast('Putaway plan saved — visible to all users','success',3000); }
+      else toast('Plan sheet sync: '+(r&&r.message||'error'),'warn',3000);
+    },
+    function(e){ hideProcessing(); toast('Plan sheet sync error: '+e,'warn',3000); }
+  );
   showSection('putaway', document.querySelectorAll('.nav-item')[3]);
   grnLines = []; saveAll(); renderGRNTable();
   document.getElementById('grnNo').value = 'GRN-' + String(grnCounter).padStart(5,'0');
@@ -2784,6 +2838,88 @@ function getFreeBin(cls, usedBins){
          binMaster.find(b=>b.status==='Empty'&&!usedBins.has(b.id))||null;
 }
 
+/* ════════════════════ PUTAWAY SHEET SYNC ════════════════════ */
+
+function loadPutawayFromSheet(){
+  showProcessing('Loading putaway plan…');
+  callSheet('loadActivePutawayPlan', {},
+    function(data){
+      hideProcessing();
+      if(!data || !data.success){ toast('Could not load plan: '+(data&&data.message||'error'),'warn'); return; }
+      if(!data.rows || !data.rows.length){ toast('No active putaway plan found','info',3000); return; }
+      // Map sheet rows back to local putawayPlan format
+      putawayPlan = data.rows.map(function(r){
+        return {
+          sku: r.sku, skuName: r.skuName, batch: r.batch,
+          binId: r.binId, allocQty: r.allocQty, allocBoxes: r.allocBoxes,
+          lineNo: r.lineNo, palletNo: r.palletNo,
+          cls: r.cls, binBrand: r.binBrand,
+          isFullPallet: r.isFullPallet, warning: r.warning,
+          _confirmed: r.status === 'CONFIRMED',
+          _planId: r.planId
+        };
+      });
+      lsSet('putaway', putawayPlan);
+      if(currentGRN && data.planId) currentGRN.grnNo = data.planId;
+      showPutaway();
+      toast('Putaway plan loaded — '+putawayPlan.length+' pallets','success',2000);
+    },
+    function(e){ hideProcessing(); toast('Load error: '+e,'warn'); }
+  );
+}
+
+function confirmPutawayRow_(palletIdx){
+  const row = putawayPlan[palletIdx];
+  if(!row){ toast('Row not found','error'); return; }
+  if(row._confirmed){ toast('Already confirmed','info',2000); return; }
+  const planId = (currentGRN && currentGRN.grnNo) || row._planId || '';
+  showProcessing('Confirming bin '+row.binId+'…');
+  callSheet('confirmPutawayRow', { planId, lineNo: row.lineNo, binId: row.binId, confirmedBy: userName },
+    function(r){
+      hideProcessing();
+      if(!r || !r.success){ toast('Confirm failed: '+(r&&r.message||'error'),'error'); return; }
+      putawayPlan[palletIdx]._confirmed = true;
+      // Mark bin Occupied locally
+      const bm = binMaster.find(b=>b.id===row.binId);
+      if(bm) bm.status = 'Occupied';
+      lsSet('putaway', putawayPlan);
+      saveAll();
+      showPutaway();
+      if(r.allConfirmed){
+        toast('✅ All pallets confirmed! Putaway complete.','success',5000);
+        putawayPlan = []; currentGRN = null; lsSet('putaway',[]); lsSet('curGRN',null); loadDashboard();
+      } else {
+        toast('Bin '+row.binId+' confirmed — Occupied','success',2000);
+      }
+    },
+    function(e){ hideProcessing(); toast('Confirm error: '+e,'error'); }
+  );
+}
+
+function confirmAllPutaway_(){
+  if(!putawayPlan.length){ toast('No active putaway plan','warn'); return; }
+  const unconfirmed = putawayPlan.filter(r=>!r._confirmed&&!r.warning);
+  if(!unconfirmed.length){ toast('All pallets already confirmed','info',2000); return; }
+  if(!confirm('Confirm all '+unconfirmed.length+' remaining pallets as placed? All bins will be marked Occupied.')) return;
+  const planId = (currentGRN && currentGRN.grnNo) || (putawayPlan[0]&&putawayPlan[0]._planId) || '';
+  showProcessing('Confirming all pallets…');
+  callSheet('confirmAllPutaway', { planId, confirmedBy: userName },
+    function(r){
+      hideProcessing();
+      if(!r||!r.success){ toast('Confirm all failed: '+(r&&r.message||'error'),'error'); return; }
+      // Mark all bins Occupied locally
+      putawayPlan.forEach(p=>{
+        if(!p.warning){ p._confirmed=true; const bm=binMaster.find(b=>b.id===p.binId); if(bm) bm.status='Occupied'; }
+      });
+      saveAll();
+      toast('✅ Putaway complete! All bins marked Occupied.','success',5000);
+      putawayPlan=[]; currentGRN=null; lsSet('putaway',[]); lsSet('curGRN',null); loadDashboard();
+      showPutaway();
+    },
+    function(e){ hideProcessing(); toast('Error: '+e,'error'); }
+  );
+}
+
 function showPutaway(){
   const el=document.getElementById('putawayRows');
   const grnEl=document.getElementById('putawayGRN');
@@ -2805,6 +2941,7 @@ function showPutaway(){
       <div class="putaway-bin" style="display:flex;flex-direction:column;align-items:center;gap:6px">
         <span style="${r.warning?'color:var(--red);font-size:13px;font-weight:700':''}">${r.warning?'⚠ NO BIN':r.binId}</span>
         <button onclick="changePalletBin(${i})" style="font-size:9px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;color:var(--slate3)" title="Change bin for this pallet">✎ Change</button>
+        ${!r.warning?`<button onclick="confirmPutawayRow_(${i})" style="font-size:9px;padding:2px 7px;border:1px solid #059669;border-radius:4px;background:${r._confirmed?'#d1fae5':'var(--surface)'};cursor:pointer;color:${r._confirmed?'#065f46':'#059669'}" title="Mark this pallet as placed">${r._confirmed?'✅ Done':'✓ Confirm'}</button>`:''}
       </div>
       <div class="putaway-info">
         <div class="pi-sku">
@@ -3028,8 +3165,14 @@ function saveNewBin(){
   const id=normalizeBinIdForMaster(document.getElementById('nb_id').value);
   if(!id){document.getElementById('nbMsg').innerText='Bin ID required';return;}
   if(binMaster.find(b=>normalizeBinIdForMaster(b.id)===id)){document.getElementById('nbMsg').innerText='Bin ID exists';return;}
-  binMaster.push({id,zone:document.getElementById('nb_zone').value.trim(),fsn:document.getElementById('nb_fsn').value,capacity:Number(document.getElementById('nb_qty').value)||null,status:document.getElementById('nb_status').value,skuFromDump:''});
+  const newBinEntry={id,zone:document.getElementById('nb_zone').value.trim(),brand:document.getElementById('nb_zone').value.trim(),fsn:document.getElementById('nb_fsn').value,capacity:Number(document.getElementById('nb_qty').value)||null,status:document.getElementById('nb_status').value,skuFromDump:''};
+  binMaster.push(newBinEntry);
   saveAll();closeModal('addBinModal');renderBinTable();loadDashboard();
+  showProcessing('Saving bin to Google Sheet…');
+  callSheet('addOrUpdateBinRow',{'Bin ID':id,'Brand Zone':newBinEntry.brand,'FSN Class':newBinEntry.fsn,'Status':newBinEntry.status},
+    function(r){ hideProcessing(); if(r&&r.success) toast('Bin '+id+' saved to sheet','success',2000); else toast('Sheet sync: '+(r&&r.message||'error'),'warn',3000); },
+    function(e){ hideProcessing(); toast('Sheet sync error: '+e,'warn',3000); }
+  );
 }
 function exportBinXLSX(){
   const ws=XLSX.utils.json_to_sheet(binMaster.map(b=>({'Bin ID':b.id,'Zone':b.zone||'','FSN Class':b.fsn,'Capacity (Boxes)':b.capacity||'','Status':b.status})));
@@ -3195,6 +3338,12 @@ function saveNewSKU(){
   if(editSKUIdx!==null){skuMaster[editSKUIdx]=entry;}
   else{if(skuMaster.find(s=>s.code===code)){document.getElementById('nsMsg').innerText='Code already exists';return;}skuMaster.push(entry);}
   saveAll();closeModal('addSKUModal');renderSKUTable();document.getElementById('db-sku').innerText=skuMaster.length;
+  showProcessing('Saving SKU to Google Sheet…');
+  const skuPayload={'SKU Code':entry.code,'SKU Name':entry.name,'Brand':entry.brand||'','Case Pack (Units/Box)':entry.casePack||'','Box/Pallet (Boxes/Shelf)':entry.boxPallet||'','Classification (A/B/C)':entry.cls||'B'};
+  callSheet('addOrUpdateSKURow',skuPayload,
+    function(r){ hideProcessing(); if(r&&r.success) toast('SKU '+entry.code+' saved to sheet','success',2000); else toast('Sheet sync: '+(r&&r.message||'error'),'warn',3000); },
+    function(e){ hideProcessing(); toast('Sheet sync error: '+e,'warn',3000); }
+  );
 }
 function exportSKUXLSX(){
   const ws=XLSX.utils.json_to_sheet(skuMaster.map(s=>({'SKU Code':s.code,'SKU Name':s.name,'Case Pack (Units/Box)':s.casePack||'','Box/Pallet (Boxes/Shelf)':s.boxPallet||'','Classification (A/B/C)':s.cls||''})));
@@ -4639,6 +4788,23 @@ function toast(msg, type, duration){
  * Updates: skuMaster, binMaster, gatepasses, inventory (dumpRows).
  * Re-renders all active views.
  */
+/* ════════════════════ PROCESSING OVERLAY ════════════════════ */
+var _procTimer = null;
+function showProcessing(msg){
+  document.getElementById('procMsg').innerText = msg || 'Processing…';
+  document.getElementById('procSubMsg').innerText = '';
+  document.getElementById('procOverlay').classList.add('visible');
+  clearTimeout(_procTimer);
+  _procTimer = setTimeout(function(){
+    const sub = document.getElementById('procSubMsg');
+    if(sub) sub.innerText = 'Taking longer than expected — still processing…';
+  }, 10000);
+}
+function hideProcessing(){
+  clearTimeout(_procTimer);
+  document.getElementById('procOverlay').classList.remove('visible');
+  document.getElementById('procSubMsg').innerText = '';
+}
 function globalRefresh(){
   const btn  = document.getElementById('globalRefreshBtn');
   const icon = document.getElementById('refreshIcon');

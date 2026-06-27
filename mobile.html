@@ -945,10 +945,33 @@ function mSubmitNewCC(){
 }
 
 // ── Putaway Plan ────────────────────────────────────────
+function mLoadPutawayFromSheet(){
+  showLoad('Loading putaway plan…','Please wait');
+  callSheet('loadActivePutawayPlan',{},
+    function(data){
+      hideLoad();
+      if(!data||!data.success||!data.rows||!data.rows.length){
+        var el=document.getElementById('mPutawayContent');
+        if(el) el.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/></svg><p>No active putaway plan.</p></div>';
+        return;
+      }
+      putawayPlan=data.rows.map(function(r){
+        return {sku:r.sku,skuName:r.skuName,batch:r.batch,binId:r.binId,
+          allocQty:r.allocQty,allocBoxes:r.allocBoxes,lineNo:r.lineNo,palletNo:r.palletNo,
+          cls:r.cls,binBrand:r.binBrand,isFullPallet:r.isFullPallet,warning:r.warning,
+          _confirmed:r.status==='CONFIRMED',_planId:r.planId};
+      });
+      lsSet('putaway',putawayPlan);
+      mRenderPutaway();
+    },
+    function(e){ hideLoad(); mToast('Could not load plan: '+e,'error',4000); }
+  );
+}
 function mRenderPutaway(){
   var el=document.getElementById('mPutawayContent');
   if(!putawayPlan||!putawayPlan.length){
-    el.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/></svg><p>No putaway plan. Generate from desktop WMS.</p></div>';
+    el.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/></svg><p>No putaway plan. Loading from server…</p></div>';
+    mLoadPutawayFromSheet();
     return;
   }
   var warns=putawayPlan.filter(function(r){return r.warning;}).length;
@@ -973,7 +996,7 @@ function mRenderPutaway(){
         +'&nbsp;'+(r.skuName||'')+'&nbsp;·&nbsp;Batch: '+(r.batch||'—')+'&nbsp;·&nbsp;Total: '+total.toLocaleString()+' units'
         +'</div>';
     }
-    var isDone=mDoneBins[r.binId+'|'+i];
+    var isDone=r._confirmed||mDoneBins[r.binId+'|'+i]||false;
     html+='<div class="putaway-card'+(r.warning?' warn':'')+(isDone?' done':'')+'">'
       +'<div class="putaway-pallet">'
         +'<span class="putaway-pallet-no">Pallet #'+(r.palletNo||i+1)+'</span>'
@@ -999,12 +1022,28 @@ function mRenderPutaway(){
   el.innerHTML=html;
 }
 
-function mMarkDone(i,btn){
-  var r=putawayPlan[i];
-  var key=r.binId+'|'+i;
-  if(mDoneBins[key]){ delete mDoneBins[key]; }
-  else { mDoneBins[key]=true; }
-  mRenderPutaway();
+function mMarkDone(idx,btn){
+  var row=putawayPlan[idx];
+  if(!row){return;}
+  if(row._confirmed){mToast('Already confirmed','info',2000);return;}
+  var planId=row._planId||(putawayPlan[0]&&putawayPlan[0]._planId)||'';
+  showLoad('Confirming bin '+row.binId+'…','');
+  callSheet('confirmPutawayRow',{planId:planId,lineNo:row.lineNo,binId:row.binId,confirmedBy:userName},
+    function(r){
+      hideLoad();
+      if(!r||!r.success){mToast('Confirm failed: '+(r&&r.message||'error'),'error',4000);return;}
+      putawayPlan[idx]._confirmed=true;
+      lsSet('putaway',putawayPlan);
+      mRenderPutaway();
+      if(r.allConfirmed){
+        mToast('✅ All pallets confirmed! Putaway complete.','success',5000);
+        putawayPlan=[];lsSet('putaway',[]);
+      } else {
+        mToast('✓ Bin '+row.binId+' done','success',2000);
+      }
+    },
+    function(e){hideLoad();mToast('Error: '+e,'error',4000);}
+  );
 }
 
 function mChangeBin(idx){
@@ -1053,12 +1092,21 @@ function mChangeBin(idx){
 }
 
 function mApplyBinChange(idx,newBin){
+  var oldBinId=putawayPlan[idx].binId;
   putawayPlan[idx].binId=newBin;
   putawayPlan[idx].warning=false;
   lsSet('putaway',putawayPlan);
   document.getElementById('binChangeModal').classList.remove('open');
   mRenderPutaway();
   mToast('Bin changed to '+newBin,'success');
+  var swapPlanId=putawayPlan[idx]._planId||(putawayPlan[0]&&putawayPlan[0]._planId)||'';
+  if(swapPlanId){
+    showLoad('Updating bin…','');
+    callSheet('swapPutawayBin',{planId:swapPlanId,lineNo:putawayPlan[idx].lineNo,oldBinId:oldBinId,newBinId:newBin,updatedBy:userName},
+      function(r){hideLoad();if(r&&r.success)mToast('Bin updated','success',2000);else mToast('Sync: '+(r&&r.message||'warn'),'warn',3000);},
+      function(e){hideLoad();mToast('Sync error: '+e,'warn',3000);}
+    );
+  }
 }
 
 document.getElementById('binChangeModal').addEventListener('click',function(e){
