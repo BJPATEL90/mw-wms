@@ -292,6 +292,7 @@ body{height:100%;min-height:100%;overflow:hidden;overscroll-behavior:none}
 .bin-suggest-id{font-family:monospace;font-size:14px;font-weight:800;color:var(--teal-d)}
 .bin-suggest-meta{font-size:11px;color:var(--slate4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
 .bin-suggest-empty{padding:12px;color:var(--slate4);font-size:12px;text-align:center}
+.bin-suggest-header{padding:6px 12px 4px;font-size:10px;font-weight:700;color:var(--slate4);letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid #f1f5f9;margin-bottom:2px}
 .bin-filter-input{width:100%;min-height:44px;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:monospace;font-size:15px;text-transform:uppercase;outline:none;margin-bottom:10px}
 .bin-filter-input:focus{border-color:var(--teal)}
 @media (max-width:380px){
@@ -1354,9 +1355,10 @@ function mCollectBins(emptyOnly){
 }
 function mFindBinSuggestions(q,opts){
   q=mNormBinId(q);
-  if(q.length<2)return [];
   opts=opts||{};
   var bins=(opts.source||mCollectBins(!!opts.emptyOnly));
+  if(!q)return bins.slice(0,opts.limit||30);
+  if(q.length<1)return [];
   var starts=[], contains=[];
   bins.forEach(function(b){
     var id=mNormBinId(b.id);
@@ -1383,13 +1385,15 @@ function mShowBinSuggestions(input,opts){
   var panel=mEnsureSuggestPanel(input);
   if(!panel)return;
   var rows=mFindBinSuggestions(input.value,opts);
+  var q=input.value.trim();
   if(!rows.length){
-    panel.innerHTML=input.value.trim().length>=2?'<div class="bin-suggest-empty">No matching bins</div>':'';
-    panel.classList.toggle('open',input.value.trim().length>=2);
+    panel.innerHTML=q?'<div class="bin-suggest-empty">No matching bins</div>':'';
+    panel.classList.toggle('open',!!q);
     return;
   }
-  panel.innerHTML=rows.map(function(b){
-    var meta=[b.status,b.brand,b.fsn?('FSN-'+b.fsn):''].filter(Boolean).join(' | ');
+  var header=q?'<div class="bin-suggest-header">'+rows.length+' match'+(rows.length===1?'':'es')+'</div>':'<div class="bin-suggest-header">All bins — tap to select</div>';
+  panel.innerHTML=header+rows.map(function(b){
+    var meta=[b.status,b.brand,b.fsn?('FSN-'+b.fsn):''].filter(Boolean).join(' · ');
     return '<button type="button" class="bin-suggest-item" data-bin="'+b.id+'"><span class="bin-suggest-id">'+b.id+'</span><span class="bin-suggest-meta">'+(meta||'Bin')+'</span></button>';
   }).join('');
   panel.classList.add('open');
