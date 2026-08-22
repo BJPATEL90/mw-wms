@@ -203,7 +203,7 @@ function getSheetDefs_() {
   // but are no longer auto-created or managed here.
   return {
     USERS: {
-      headers: ['User ID', 'Password', 'Name', 'Role', 'Active (YES/NO)', 'Last Login'],
+      headers: ['User ID', 'Password', 'Name', 'Role', 'Active (YES/NO)', 'Last Login', 'Allowed Sections'],
       tabColor: '#0d9488'
     },
     // ── WMS App sheets ──
@@ -338,10 +338,10 @@ function addDemoUsers() {
   const existingIds = existing.slice(1).map(r => String(r[0]).trim());
 
   const users = [
-    ['admin',    'admin123', 'Admin User',   'ADMIN',    'YES'],
-    ['wms1',     'wms123',   'WMS User 1',   'OPERATOR', 'YES'],
-    ['wms2',     'wms123',   'WMS User 2',   'OPERATOR', 'YES'],
-    ['manager',  'mgr123',   'WMS Manager',  'MANAGER',  'YES'],
+    ['admin',    'admin123', 'Admin User',   'ADMIN',    'YES', '', 'ALL'],
+    ['wms1',     'wms123',   'WMS User 1',   'OPERATOR', 'YES', '', 'INBOUND'],
+    ['wms2',     'wms123',   'WMS User 2',   'OPERATOR', 'YES', '', 'OPERATIONS,PLANNING'],
+    ['manager',  'mgr123',   'WMS Manager',  'MANAGER',  'YES', '', 'INBOUND,OPERATIONS,PLANNING'],
   ];
 
   let added = 0;
@@ -407,12 +407,17 @@ function login(userId, password) {
   if (!userId || !password) return { success: false, message: 'Enter User ID and Password' };
 
   const data = sh.getDataRange().getValues();
+  const header = data[0].map(h => String(h || '').trim().toUpperCase());
+  const sectionsIdx = header.indexOf('ALLOWED SECTIONS');
   for (let i = 1; i < data.length; i++) {
     const rowId   = String(data[i][0] || '').trim();
     const rowPw   = String(data[i][1] || '').trim();
     const rowName = String(data[i][2] || '').trim();
     const rowRole = String(data[i][3] || '').trim().toUpperCase();
     const active  = String(data[i][4] || '').trim().toUpperCase();
+    const allowedSections = sectionsIdx >= 0
+      ? String(data[i][sectionsIdx] || '').trim().toUpperCase()
+      : (rowRole === 'ADMIN' ? 'ALL' : '');
 
     if (rowId === userId && rowPw === password) {
       if (active !== 'YES') return { success: false, message: 'Account inactive — contact Admin.' };
@@ -428,6 +433,7 @@ function login(userId, password) {
         name:     rowName,
         role:     rowRole,   // ADMIN or anything else
         userId:   rowId,
+        allowedSections,
       };
     }
   }
